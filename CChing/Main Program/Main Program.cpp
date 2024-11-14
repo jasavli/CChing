@@ -2,11 +2,42 @@
 //
 
 #include <iostream>
+#include <string>
+#include <fstream>
+using namespace std;
+
+// pridobi tekst (koda) iz navedene datoteke
+void pridobiTekst(string &s, string potDoDatoteke)
+{
+    ifstream f(potDoDatoteke);
+
+    string tempS;
+
+    if (!f.is_open()) {
+        cout << "Error opening the file!";
+    }
+    else {
+        while (getline(f, tempS)) {
+            s += tempS + "\n";
+        }
+
+        f.close();
+    }
+}
 
 int main()
 {
-    std::cout << "Hello World!\n";
+    string koda;
+    pridobiTekst(koda, "Test1.txt");
+    cout << koda;
 }
+
+
+
+
+
+
+
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
 // Debug program: F5 or Debug > Start Debugging menu

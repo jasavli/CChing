@@ -1,44 +1,56 @@
-// Main Program.cpp : This file contains the 'main' function. Program execution begins and ends there.
+﻿// Main Program.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <list>
+#include <sstream>
+
 using namespace std;
 
 // pridobi tekst (koda) iz navedene datoteke
-void pridobiTekst(string &s, string potDoDatoteke)
+void pridobiTekst(string& s, const string& potDoDatoteke)
 {
     ifstream f(potDoDatoteke);
-
     string tempS;
 
     if (!f.is_open()) {
-        cout << "Error opening the file!";
+        cout << "Error opening the file!" << endl;
     }
     else {
         while (getline(f, tempS)) {
-            s += tempS + " ";
+            s += tempS;
         }
-
         f.close();
     }
 }
-void lociPoVejicah(string &s) 
+
+//loči vse vrstice kode po znaku podpičja
+list<string> lociPoVejicah(const string& s)
 {
-    
+    list<string> vrsticeKode;
+    stringstream ss(s);
+    string token;
+
+
+    while (getline(ss, token, ';')) {
+        vrsticeKode.push_back(token); 
+    }
+
+    return vrsticeKode;
 }
-
-
-
 
 int main()
 {
     string koda;
     pridobiTekst(koda, "Test1.txt");
-    cout << koda;
+    list<string> tokens = lociPoVejicah(koda);
+
+
+    return 0;
 }
+
 
 
 

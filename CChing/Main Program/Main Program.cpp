@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <list>
 using namespace std;
 
 // pridobi tekst (koda) iz navedene datoteke
@@ -18,12 +19,19 @@ void pridobiTekst(string &s, string potDoDatoteke)
     }
     else {
         while (getline(f, tempS)) {
-            s += tempS + "\n";
+            s += tempS + " ";
         }
 
         f.close();
     }
 }
+void lociPoVejicah(string &s) 
+{
+    
+}
+
+
+
 
 int main()
 {

@@ -1,3 +1,11 @@
-Hello World!12345;
-Again....;
-YESS;
+cwrite = "Hello World!";
+
+
+
+
+cread
+=
+"Kako
+ti
+je
+ime?";

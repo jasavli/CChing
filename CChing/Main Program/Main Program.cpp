@@ -39,6 +39,33 @@ void DodajPresledekZaVrsticami(string& koda)
 
     koda = result;
 }
+// loči vso kodo glede na narekovaje -> notri ali vzunaj, in shrani aglede na to
+string LociPoNarekovajih(string koda, list<string>& stringi) {
+    bool vNarekovajih = false;
+    list<string> vrstica;
+    stringstream ss(koda);
+    string token;
+    string s;
+
+    while (getline(ss, token, '"')) {
+        if (vNarekovajih) {
+            stringi.push_back(token);
+            vrstica.push_back("\"\"");
+        }
+        else {
+            vrstica.push_back(token);
+        }
+        vNarekovajih = !vNarekovajih;
+    }
+
+    
+    for (const auto& part : vrstica) {
+        s += part;
+    }
+
+    return s;
+}
+
 //loči vse vrstice kode po znaku ;
 list<string> lociPoVejicah(const string& s)
 {
@@ -88,9 +115,11 @@ list<list<string>> lociVrsticePoBlockih(const list<string>& vrstice)
 }
 int main()
 {
+    list<string> stringi;
     string koda;
     pridobiTekst(koda, "Test1.txt");
     DodajPresledekZaVrsticami(koda);
+    koda = LociPoNarekovajih(koda, stringi);
     list<string> tokens = lociPoVejicah(koda);
     list<list<string>> razclenjenaKoda = lociVrsticePoBlockih(tokens);
 

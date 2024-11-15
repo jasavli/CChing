@@ -1,11 +1,6 @@
-cwrite = "Hello World!";
+cwrite = "Hello World!" + "Hello" + a + "Tri" + b;
+cread = "Kako ti je ime?";
 
+cwrite = "" + "" + a + "" + b;
+cread = "";
 
-
-
-cread
-=
-"Kako
-ti
-je
-ime?";

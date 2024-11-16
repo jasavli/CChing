@@ -1,8 +1,0 @@
-namespace Spremenljivke 
-{
-	class Spremenljivka
-	{
-	};
-}
-
-

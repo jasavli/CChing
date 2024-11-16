@@ -1,5 +1,5 @@
 ﻿// Main Program.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+
 
 #include <iostream>
 #include <string>
@@ -65,7 +65,32 @@ string LociPoNarekovajih(string koda, list<string>& stringi) {
 
     return s;
 }
+// pridobi element v listu, ki je na polju polje
+string DobiItemIzLista(list<string> list, int polje) 
+{
+    auto it = list.begin();
+    advance(it, polje);
+    return *it;
+}
 
+
+// Stringe, ki smo jih dali ven, ponovno vpiše v narekovaje
+list<list<string>> ZdruzitevStringovVNarekovaje(list <list< string >> koda, list<string>& stringi)
+{
+    int i = 0;
+    for (auto& row : koda) 
+    {
+        for (auto& elem : row) 
+        {
+            if (elem == "\"\"") 
+            {
+                elem = "\"" + DobiItemIzLista(stringi, i) + "\"";
+                i++;
+            }
+        }
+    }
+    return koda;
+}
 //loči vse vrstice kode po znaku ;
 list<string> lociPoVejicah(const string& s)
 {
@@ -122,6 +147,9 @@ int main()
     koda = LociPoNarekovajih(koda, stringi);
     list<string> tokens = lociPoVejicah(koda);
     list<list<string>> razclenjenaKoda = lociVrsticePoBlockih(tokens);
+    razclenjenaKoda = ZdruzitevStringovVNarekovaje(razclenjenaKoda, stringi);
+
+
 
     for (const auto& row : razclenjenaKoda)
     {

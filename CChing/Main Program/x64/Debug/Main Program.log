@@ -1,3 +1,2 @@
 ﻿  Main Program.cpp
-C:\CChing\CChing\Main Program\Main Program.cpp(9,17): error C2871: 'Spremenljivke': a namespace with this name does not exist
-C:\CChing\CChing\Main Program\Main Program.cpp(9,17): error C2065: 'Spremenljivke': undeclared identifier
+  Main Program.vcxproj -> C:\CChing\CChing\x64\Debug\Main Program.exe

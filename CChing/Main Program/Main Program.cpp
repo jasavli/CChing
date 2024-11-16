@@ -6,8 +6,9 @@
 #include <fstream>
 #include <list>
 #include <sstream>
-using namespace Spremenljivke;
+
 using namespace std;
+
 // pridobi tekst (koda) iz navedene datoteke
 void pridobiTekst(string& s, const string& potDoDatoteke)
 {

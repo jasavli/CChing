@@ -1,0 +1,8 @@
+namespace Spremenljivke 
+{
+	class Spremenljivka
+	{
+	};
+}
+
+

@@ -6,8 +6,7 @@
 #include <fstream>
 #include <list>
 #include <sstream>
-#include <msclr/marshal_cppstd.h>
-using namespace Spremenljivke;
+
 using namespace std;
 
 // pridobi tekst (koda) iz navedene datoteke

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <list>
 #include <sstream>
+#include "Spremenljivka.h"
 
 using namespace std;
 
@@ -39,7 +40,7 @@ void DodajPresledekZaVrsticami(string& koda)
 
     koda = result;
 }
-// loči vso kodo glede na narekovaje -> notri ali vzunaj, in shrani aglede na to
+// loči vso kodo glede na narekovaje -> notri ali vzunaj, in shrani glede na to
 string LociPoNarekovajih(string koda, list<string>& stringi) {
     bool vNarekovajih = false;
     list<string> vrstica;
@@ -71,6 +72,12 @@ string DobiItemIzLista(list<string> list, int polje)
     auto it = list.begin();
     advance(it, polje);
     return *it;
+}
+string DobiImeIzLista(list<Spremenljivka> list, int polje)
+{
+    auto it = list.begin();
+    advance(it, polje);
+    return it->ime;
 }
 
 
@@ -138,6 +145,35 @@ list<list<string>> lociVrsticePoBlockih(const list<string>& vrstice)
         cout << "---" << endl;
     }*/
 }
+
+int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji, list<Spremenljivka> spremenljivke, list<Spremenljivka> vrednost) 
+{
+    for (int i = 0; i < keywords.size(); i++) 
+    {
+        if (blok == DobiItemIzLista(keywords, i)) return 1;
+    }
+    for (int i = 0; i < operatorji.size(); i++)
+    {
+        if (blok == DobiItemIzLista(operatorji, i)) return 2;
+    }
+    /*for (int i = 0; i < spremenljivke.size(); i++)
+    {
+        if (blok == DobiItemIzLista(spremenljivke, i)) return 3;
+    }
+    for (int i = 0; i < vrednost.size(); i++)
+    {
+        if (blok == DobiItemIzLista(vrednost, i)) return 4;
+    }*/
+}
+
+list<string> keywords = { "cwrite", "cread", "string", "int", "bool", "while", "for", "if", "elseif", "else", "switch", "case" }; //list 1
+list<string> operatorji = {"+","-","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=","=<",">=","=>", "{", "}", "(", ")"};//list 2
+
+
+
+list<Spremenljivka> spremenljivke = {}; //list 3
+list<Spremenljivka> vrednost = {}; // list 4
+
 int main()
 {
     list<string> stringi;
@@ -148,6 +184,20 @@ int main()
     list<string> tokens = lociPoVejicah(koda);
     list<list<string>> razclenjenaKoda = lociVrsticePoBlockih(tokens);
     razclenjenaKoda = ZdruzitevStringovVNarekovaje(razclenjenaKoda, stringi);
+
+
+    // začne z izvrševanjem kode
+    for (const auto& glavniStevecVrstic : razclenjenaKoda)
+    {
+        for (const auto& elementVBloku : glavniStevecVrstic)
+        {
+            
+        }
+        cout << "---" << endl;
+    }
+
+
+
 
 
 

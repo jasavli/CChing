@@ -1,0 +1,12 @@
+C:\CChing\CChing\Spremenljivka\bin\Debug\net8.0\Spremenljivka.deps.json
+C:\CChing\CChing\Spremenljivka\bin\Debug\net8.0\Spremenljivka.dll
+C:\CChing\CChing\Spremenljivka\bin\Debug\net8.0\Spremenljivka.pdb
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.GeneratedMSBuildEditorConfig.editorconfig
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.AssemblyInfoInputs.cache
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.AssemblyInfo.cs
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.csproj.CoreCompileInputs.cache
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.sourcelink.json
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.dll
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\refint\Spremenljivka.dll
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\Spremenljivka.pdb
+C:\CChing\CChing\Spremenljivka\obj\Debug\net8.0\ref\Spremenljivka.dll

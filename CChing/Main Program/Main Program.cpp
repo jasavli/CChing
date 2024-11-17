@@ -215,7 +215,7 @@ string dodajPresledekPriOperatorjih(string koda, list<string> operatorji) {
 
 int main()
 {
-    string file = "Test2.txt";
+    string file = "Test1.txt";
 
 
 
@@ -225,6 +225,7 @@ int main()
     list<Spremenljivka> vrednost = {}; // list 3
     list<Spremenljivka> spremenljivke = {}; //list 4
 
+    int vrstaBloka;
     list<string> stringi;
     string koda;
     pridobiTekst(koda, file);
@@ -237,11 +238,11 @@ int main()
 
 
     // začne z izvrševanjem kode
-    /*for (const auto& glavniStevecVrstic : razclenjenaKoda)
+    for (const auto& glavniStevecVrstic : razclenjenaKoda)
     {
         for (const auto& elementVBloku : glavniStevecVrstic)
         {
-            int vrstaBloka = kjeSeNahajaBlok(elementVBloku,keywords,operatorji);
+            vrstaBloka = kjeSeNahajaBlok(elementVBloku,keywords,operatorji);
             switch (vrstaBloka)
             {
                 //keywords
@@ -259,7 +260,7 @@ int main()
             }
         }
         cout << "---" << endl;
-    }*/
+    }
 
 
 

@@ -12,16 +12,16 @@ class Spremenljivka
 		Spremenljivka() {
 
 		}
-		static string pridobiIme(Spremenljivka s1) {
-			return s1.ime;
-		}
 };
 class String : Spremenljivka 
 {
 	protected:
 		string vrednost;
 	public:
-		
+		void ustvariString(string ime, string vrednost) 
+		{
+
+		}
 	
 };
 class Int : Spremenljivka

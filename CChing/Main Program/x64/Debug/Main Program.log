@@ -1,27 +1,2 @@
 ﻿  Main Program.cpp
-C:\CChing\CChing\Main Program\Spremenljivka.h(5,10): error C3646: 'ime': unknown override specifier
-  (compiling source file 'Main%20Program.cpp')
-  
-C:\CChing\CChing\Main Program\Spremenljivka.h(5,13): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
-  (compiling source file 'Main%20Program.cpp')
-  
-C:\CChing\CChing\Main Program\Spremenljivka.h(10,10): error C3646: 'vrednost': unknown override specifier
-  (compiling source file 'Main%20Program.cpp')
-  
-C:\CChing\CChing\Main Program\Spremenljivka.h(10,18): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
-  (compiling source file 'Main%20Program.cpp')
-  
-  Spremenljivka.cpp
-C:\CChing\CChing\Main Program\Spremenljivka.h(5,10): error C3646: 'ime': unknown override specifier
-  (compiling source file 'Spremenljivka.cpp')
-  
-C:\CChing\CChing\Main Program\Spremenljivka.h(5,13): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
-  (compiling source file 'Spremenljivka.cpp')
-  
-C:\CChing\CChing\Main Program\Spremenljivka.h(10,10): error C3646: 'vrednost': unknown override specifier
-  (compiling source file 'Spremenljivka.cpp')
-  
-C:\CChing\CChing\Main Program\Spremenljivka.h(10,18): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
-  (compiling source file 'Spremenljivka.cpp')
-  
-  Generating Code...
+  Main Program.vcxproj -> C:\CChing\CChing\x64\Debug\Main Program.exe

@@ -145,8 +145,16 @@ list<list<string>> lociVrsticePoBlockih(const list<string>& vrstice)
         cout << "---" << endl;
     }*/
 }
-
-int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji, list<Spremenljivka> spremenljivke, list<Spremenljivka> vrednost) 
+bool aliJeStringInt(string blok) 
+{
+    auto it = blok.begin();
+    for (int i = 0; i < blok.size(); i++) {
+        if (!(isdigit(*it))) return false;
+        advance(it, i);
+    }
+    return true;
+}
+int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji)
 {
     for (int i = 0; i < keywords.size(); i++) 
     {
@@ -156,6 +164,10 @@ int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji,
     {
         if (blok == DobiItemIzLista(operatorji, i)) return 2;
     }
+    if (blok[0] == '\"' || aliJeStringInt(blok)) return 3;
+    return 4;
+
+
     /*for (int i = 0; i < spremenljivke.size(); i++)
     {
         if (blok == DobiItemIzLista(spremenljivke, i)) return 3;
@@ -166,16 +178,17 @@ int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji,
     }*/
 }
 
-list<string> keywords = { "cwrite", "cread", "string", "int", "bool", "while", "for", "if", "elseif", "else", "switch", "case" }; //list 1
-list<string> operatorji = {"+","-","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=","=<",">=","=>", "{", "}", "(", ")"};//list 2
 
 
-
-list<Spremenljivka> spremenljivke = {}; //list 3
-list<Spremenljivka> vrednost = {}; // list 4
 
 int main()
 {
+    list<string> keywords = { "cwrite", "cread", "string", "int", "bool", "while", "for", "if", "elseif", "else", "switch", "case" }; //list 1
+    list<string> operatorji = { "+","-","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=","=<",">=","=>", "{", "}", "(", ")",","};//list 2
+
+    list<Spremenljivka> vrednost = {}; // list 3
+    list<Spremenljivka> spremenljivke = {}; //list 4
+
     list<string> stringi;
     string koda;
     pridobiTekst(koda, "Test1.txt");
@@ -191,7 +204,8 @@ int main()
     {
         for (const auto& elementVBloku : glavniStevecVrstic)
         {
-            
+            int vrstaBloka = kjeSeNahajaBlok(elementVBloku,keywords,operatorji);
+            cout << elementVBloku << " " << vrstaBloka << endl;
         }
         cout << "---" << endl;
     }

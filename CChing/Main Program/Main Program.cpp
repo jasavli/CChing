@@ -145,6 +145,7 @@ list<list<string>> lociVrsticePoBlockih(const list<string>& vrstice)
         cout << "---" << endl;
     }*/
 }
+// preveri, če lahko dan string spremenimo v int ali ne
 bool aliJeStringInt(string blok) 
 {
     auto it = blok.begin();
@@ -154,6 +155,7 @@ bool aliJeStringInt(string blok)
     }
     return true;
 }
+// preveri v katerem listu se nahaja blok
 int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji)
 {
     for (int i = 0; i < keywords.size(); i++) 
@@ -167,15 +169,45 @@ int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji)
     if (blok[0] == '\"' || aliJeStringInt(blok)) return 3;
     return 4;
 
-
-    /*for (int i = 0; i < spremenljivke.size(); i++)
-    {
-        if (blok == DobiItemIzLista(spremenljivke, i)) return 3;
+}
+// preveri, če je dani blok v listu operatorjev
+bool jeZnakOperator(string it, list<string> operatorji) {
+    for (int i = 0; i < operatorji.size(); i++) {
+        if (it == DobiItemIzLista(operatorji, i)) return true;
     }
-    for (int i = 0; i < vrednost.size(); i++)
-    {
-        if (blok == DobiItemIzLista(vrednost, i)) return 4;
-    }*/
+    return false;
+}
+// pred in za vsakem operatorju (razen če je dvojni) doda presledek --> dani so v različne bloke
+string dodajPresledekPriOperatorjih(string koda, list<string> operatorji) {
+    string rezultat;
+    char prejsniZnak = '\0';
+
+    for (auto it = koda.begin(); it != koda.end(); ++it) {
+        string znak(1, *it);
+
+        if (jeZnakOperator(znak, operatorji)) {
+            rezultat += " ";
+            rezultat += *it;
+            // preveri, če je naslednji znak +, - ali =
+            auto naslednjiIt = next(it, 1);
+            if (naslednjiIt != koda.end()) {
+                if (*naslednjiIt == '=' || (*it == '+' && *naslednjiIt == '+') || (*it == '-' && *naslednjiIt == '-'))
+                {
+                    rezultat += *naslednjiIt;
+                    ++it;
+                }
+                else rezultat += " ";
+            }
+            
+        }
+        else {
+            rezultat += *it;
+        }
+
+        prejsniZnak = *it;
+    }
+
+    return rezultat;
 }
 
 
@@ -183,16 +215,21 @@ int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji)
 
 int main()
 {
+    string file = "Test2.txt";
+
+
+
     list<string> keywords = { "cwrite", "cread", "string", "int", "bool", "while", "for", "if", "elseif", "else", "switch", "case" }; //list 1
-    list<string> operatorji = { "+","-","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=","=<",">=","=>", "{", "}", "(", ")",","};//list 2
+    list<string> operatorji = { "+", "++","-","--","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=",">=", "{", "}", "(", ")",",","\"", ":", "."};//list 2
 
     list<Spremenljivka> vrednost = {}; // list 3
     list<Spremenljivka> spremenljivke = {}; //list 4
 
     list<string> stringi;
     string koda;
-    pridobiTekst(koda, "Test1.txt");
+    pridobiTekst(koda, file);
     DodajPresledekZaVrsticami(koda);
+    koda = dodajPresledekPriOperatorjih(koda, operatorji);
     koda = LociPoNarekovajih(koda, stringi);
     list<string> tokens = lociPoVejicah(koda);
     list<list<string>> razclenjenaKoda = lociVrsticePoBlockih(tokens);
@@ -200,15 +237,29 @@ int main()
 
 
     // začne z izvrševanjem kode
-    for (const auto& glavniStevecVrstic : razclenjenaKoda)
+    /*for (const auto& glavniStevecVrstic : razclenjenaKoda)
     {
         for (const auto& elementVBloku : glavniStevecVrstic)
         {
             int vrstaBloka = kjeSeNahajaBlok(elementVBloku,keywords,operatorji);
-            cout << elementVBloku << " " << vrstaBloka << endl;
+            switch (vrstaBloka)
+            {
+                //keywords
+            case 1:
+                break;
+                // operatorji in znaki
+            case 2:
+                break;
+                // vrednosti
+            case 3:
+                break;
+                // spremenljivke
+            case 4:
+                break;
+            }
         }
         cout << "---" << endl;
-    }
+    }*/
 
 
 

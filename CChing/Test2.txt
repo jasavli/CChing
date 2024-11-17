@@ -1,0 +1,10 @@
+Console.Write("Koliko stevil zelis sesteti: ");
+int st1 = int.Parse(Console.ReadLine());
+for (int i = 0; i < št1; i++)
+{
+    Console.Write("Vpisi stevilo: ");
+    double x = double.Parse(Console.ReadLine());
+    vsota = vsota + x;
+}
+Console.WriteLine("Vsota stevil je: {0}.", vsota);
+return vsota;

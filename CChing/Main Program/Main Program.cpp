@@ -79,6 +79,15 @@ string DobiImeIzLista(list<Spremenljivka> list, int polje)
     advance(it, polje);
     return it->ime;
 }
+// preveri, če je item v listu
+bool JeItemVListu(list<string> list, string item) {
+    for (const auto& element : list) {
+        if (item == element) {
+            return true;
+        }
+    }
+    return false;
+}   
 
 
 // Stringe, ki smo jih dali ven, ponovno vpiše v narekovaje
@@ -180,6 +189,7 @@ bool jeZnakOperator(string it, list<string> operatorji) {
 // pred in za vsakem operatorju (razen če je dvojni) doda presledek --> dani so v različne bloke
 string dodajPresledekPriOperatorjih(string koda, list<string> operatorji) {
     string rezultat;
+    list<string> dvodelniOperatorji = { "+","-","*", "/" ,"%","!","=","<", ">" };
     char prejsniZnak = '\0';
 
     for (auto it = koda.begin(); it != koda.end(); ++it) {
@@ -191,10 +201,11 @@ string dodajPresledekPriOperatorjih(string koda, list<string> operatorji) {
             // preveri, če je naslednji znak +, - ali =
             auto naslednjiIt = next(it, 1);
             if (naslednjiIt != koda.end()) {
-                if (*naslednjiIt == '=' || (*it == '+' && *naslednjiIt == '+') || (*it == '-' && *naslednjiIt == '-'))
+                if (naslednjiIt != koda.end() && ((*naslednjiIt == '=' && JeItemVListu(dvodelniOperatorji, string(1, *it))) || (*it == '+' && *naslednjiIt == '+') || (*it == '-' && *naslednjiIt == '-')))
                 {
                     rezultat += *naslednjiIt;
                     ++it;
+                    rezultat += " ";
                 }
                 else rezultat += " ";
             }
@@ -215,7 +226,7 @@ string dodajPresledekPriOperatorjih(string koda, list<string> operatorji) {
 
 int main()
 {
-    string file = "Test1.txt";
+    string file = "Test2.txt";
 
 
 

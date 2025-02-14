@@ -1,5 +1,6 @@
 ﻿// Main Program.cpp : This file contains the 'main' function. Program execution begins and ends there.
 
+//    PJ#
 
 #include <iostream>
 #include <string>
@@ -40,7 +41,7 @@ void DodajPresledekZaVrsticami(string& koda)
 
     koda = result;
 }
-// loči vso kodo glede na narekovaje -> notri ali vzunaj, in shrani glede na to
+// loči vso kodo glede na narekovaje -> notri ali zunaj, in shrani glede na to
 string LociPoNarekovajih(string koda, list<string>& stringi) {
     bool vNarekovajih = false;
     list<string> vrstica;
@@ -73,12 +74,12 @@ string DobiItemIzLista(list<string> list, int polje)
     advance(it, polje);
     return *it;
 }
-string DobiImeIzLista(list<Spremenljivka> list, int polje)
+/*string DobiImeIzLista(list<Spremenljivka> list, int polje)
 {
     auto it = list.begin();
     advance(it, polje);
     return it->ime;
-}
+}*/
 // preveri, če je item v listu
 bool JeItemVListu(list<string> list, string item) {
     for (const auto& element : list) {
@@ -122,7 +123,6 @@ list<string> lociPoVejicah(const string& s)
 
     return vrsticeKode;
 }
-
 // vsako vrstico kode razčleni na posamezne dele
 // primer: '"cwrite = "Hello World!"' razstavi na 'cwrite','=','"Hello','World!"' 
 list<list<string>> lociVrsticePoBlockih(const list<string>& vrstice) 
@@ -145,14 +145,6 @@ list<list<string>> lociVrsticePoBlockih(const list<string>& vrstice)
     }
     return list2D;
     
-    /*for (const auto& row : list2D)
-    {
-        for (const auto& elem : row) 
-        {
-            cout << elem << endl;
-        }
-        cout << "---" << endl;
-    }*/
 }
 // preveri, če lahko dan string spremenimo v int ali ne
 bool aliJeStringInt(string blok) 
@@ -175,7 +167,7 @@ int kjeSeNahajaBlok(string blok, list<string> keywords, list<string> operatorji)
     {
         if (blok == DobiItemIzLista(operatorji, i)) return 2;
     }
-    if (blok[0] == '\"' || aliJeStringInt(blok)) return 3;
+    if (blok[0] == '\"' || aliJeStringInt(blok) || blok == "true" || blok == "false") return 3;
     return 4;
 
 }
@@ -223,15 +215,14 @@ string dodajPresledekPriOperatorjih(string koda, list<string> operatorji) {
 
 
 
-
 int main()
 {
-    string file = "Test2.txt";
+    string file = "Test1.txt";
 
 
 
     list<string> keywords = { "cwrite", "cread", "string", "int", "bool", "while", "for", "if", "elseif", "else", "switch", "case" }; //list 1
-    list<string> operatorji = { "+", "++","-","--","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=",">=", "{", "}", "(", ")",",","\"", ":", "."};//list 2
+    list<string> operatorji = { "+", "++","-","--","*","/","%","=","!","<",">","+=","-=","*=","/=","%=","==","!=","<=",">=", "{", "}", "(", ")",",","\"", ":", ".", "[","]"};//list 2
 
     list<Spremenljivka> vrednost = {}; // list 3
     list<Spremenljivka> spremenljivke = {}; //list 4
@@ -254,10 +245,31 @@ int main()
         for (const auto& elementVBloku : glavniStevecVrstic)
         {
             vrstaBloka = kjeSeNahajaBlok(elementVBloku,keywords,operatorji);
+
             switch (vrstaBloka)
             {
                 //keywords
             case 1:
+                if (elementVBloku == "int" || elementVBloku == "bool" || elementVBloku == "string") {
+                    auto it = next(glavniStevecVrstic.begin());
+                    if (it != glavniStevecVrstic.end()) {
+                        string varName = *it;
+                        it = next(it);
+                        if (it != glavniStevecVrstic.end() && *it == "=") {
+                            it = next(it);
+                            if (it != glavniStevecVrstic.end()) {
+                                string value = *it;
+                                try {
+                                    declareVariable(elementVBloku, varName, value);
+                                    cout << "Declared " << elementVBloku << " " << varName << " = " << value << endl;
+                                }
+                                catch (const exception& e) {
+                                    cout << "Error: " << e.what() << endl;
+                                }
+                            }
+                        }
+                    }
+                }
                 break;
                 // operatorji in znaki
             case 2:
@@ -277,15 +289,14 @@ int main()
 
 
 
-
-    for (const auto& row : razclenjenaKoda)
+    /*for (const auto& row : razclenjenaKoda)
     {
         for (const auto& elem : row)
         {
             cout << elem << endl;
         }
         cout << "---" << endl;
-    }
+    }*/
 
 
     return 0;

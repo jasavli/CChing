@@ -1,2 +1,30 @@
 ﻿  Main Program.cpp
-  Main Program.vcxproj -> C:\CChing\CChing\x64\Debug\Main Program.exe
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\variant(12): warning STL4038: The contents of <variant> are available only with C++17 or later.
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(291,17): error C2259: 'Spremenljivka': cannot instantiate abstract class
+  (compiling source file 'Main%20Program.cpp')
+  C:\CChing\CChing\Main Program\Spremenljivka.h(11,7):
+  see declaration of 'Spremenljivka'
+  C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(291,17):
+  due to following members:
+  C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(291,17):
+  'std::string Spremenljivka::getValueAsString(void)': is abstract
+  C:\CChing\CChing\Main Program\Spremenljivka.h(19,20):
+  see declaration of 'Spremenljivka::getValueAsString'
+  C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(291,17):
+  the template instantiation context (the oldest one first) is
+  	C:\CChing\CChing\Main Program\Main Program.cpp(227,25):
+  	see reference to class template instantiation 'std::list<Spremenljivka,std::allocator<Spremenljivka>>' being compiled
+  	C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(1831,10):
+  	while compiling class template member function 'void std::list<Spremenljivka,std::allocator<Spremenljivka>>::_Alloc_sentinel_and_proxy(void)'
+  		C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(799,34):
+  		see the first reference to 'std::list<Spremenljivka,std::allocator<Spremenljivka>>::_Alloc_sentinel_and_proxy' in 'std::list<Spremenljivka,std::allocator<Spremenljivka>>::list'
+  		C:\CChing\CChing\Main Program\Main Program.cpp(227,36):
+  		see the first reference to 'std::list<Spremenljivka,std::allocator<Spremenljivka>>::list' in 'main'
+  	C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include\list(1836,29):
+  	see reference to class template instantiation 'std::_List_node<_Ty,std::_Default_allocator_traits<_Alloc>::void_pointer>' being compiled
+          with
+          [
+              _Ty=Spremenljivka,
+              _Alloc=std::allocator<Spremenljivka>
+          ]
+  

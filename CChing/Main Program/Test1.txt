@@ -1,4 +1,3 @@
-cwrite = "Hello World!" + "Hello" + a + "Tri" + b;
-cread = "Kako ti je ime?";
+int x = 3
 
 

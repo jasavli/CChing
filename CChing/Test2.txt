@@ -8,3 +8,6 @@ for (int i = 0; i < št1; i++)
 }
 Console.WriteLine("Vsota stevil je: {0}.", vsota);
 return vsota;
+
+x = true;
+y = false;

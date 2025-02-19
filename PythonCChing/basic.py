@@ -2,8 +2,8 @@ INT = 'INT'
 FLOAT = 'FLOAT'
 PLUS = 'PLUS'
 MINUS = 'MINUS'
-MUL = 'MUL'
-DIV = 'DIV'
+KRAT = 'KRAT'
+DEL = 'DEL'
 OKLEPAJ = 'OKLEPAJ'
 ZAKLEPAJ = 'ZAKLEPAJ'
 #konstanta za preverjanje števk
@@ -47,10 +47,10 @@ class Lexer:
                 tokens.append(Token(MINUS))
                 self.advance()
             elif self.currentChar == '/':
-                tokens.append(Token(DIV))
+                tokens.append(Token(DEL))
                 self.advance()
             elif self.currentChar == '*':   
-                tokens.append(Token(MUL))
+                tokens.append(Token(KRAT))
                 self.advance()
             elif self.currentChar == '(':
                 tokens.append(Token(OKLEPAJ))
@@ -115,9 +115,72 @@ class Position:
     def copy(self):
         return Position(self.ind, self.line, self.col, self.fileName, self.fileText)
         
+class NumberNode:
+    def __init__(self, tok):
+        self.tok = tok
+    def __repr__(self):
+        return f'{self.tok}'
+class BinOpNode:
+    def __init__(self, lNode, opTok, rNode):
+        self.lNode = lNode
+        self.opTok = opTok
+        self.rNode = rNode
+    def __repr__(self):
+        return f'{self.lNode}, {self.opTok}, {self.rNode}'
+
+class Parser:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.tokInd = -1
+        self.advance()
+        
+    def advance(self):
+        self.tokInd  += 1
+        if self.tokInd < len(self.tokens):
+            self.currentTok = self.tokens[self.tokInd]
+        return self.currentTok
+    
+    def parse(self):
+        res = self.expr()
+        return res
+
+
+    #enota
+    def factor(self):
+        tok = self.currentTok
+
+        if tok.type in (INT, FLOAT):
+            self.advance()
+            return NumberNode(tok)
+
+    # factor *|/ factor
+    def term(self):
+        return self.binOp(self.factor, (KRAT, DEL))
+
+    # term +|- term
+    def expr(self):
+        return self.binOp(self.term, (PLUS, MINUS))
+    
+    def binOp(self, func, ops):
+        left = func()
+
+        while self.currentTok.type in ops:
+            opTok = self.currentTok
+            self.advance()
+            right = func()
+            left = BinOpNode(left, opTok, right)
+            
+        return left
+
 #Run
 def run(fileName, text):
     lexer = Lexer(fileName, text)
     tokens, error = lexer.makeTokens()
+    if error: return None, error
 
-    return tokens, error
+    parser = Parser(tokens)
+    #abstract sintax tree
+    ast = parser.parse()
+
+
+    return ast, None

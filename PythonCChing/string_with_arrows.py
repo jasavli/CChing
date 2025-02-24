@@ -1,11 +1,11 @@
 def string_with_arrows(text, pos_start, pos_end):
     result = ''
 
-    idx_start = max(text.rfind('\n', 0, pos_start.idx), 0)
+    idx_start = max(text.rfind('\n', 0, pos_start.ind), 0)
     idx_end = text.find('\n', idx_start + 1)
     if idx_end < 0: idx_end = len(text)
     
-    line_count = pos_end.ln - pos_start.ln + 1
+    line_count = pos_end.line - pos_start.line + 1
     for i in range(line_count):
         line = text[idx_start:idx_end]
         col_start = pos_start.col if i == 0 else 0

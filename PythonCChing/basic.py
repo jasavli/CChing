@@ -1,3 +1,7 @@
+#Importi
+from string_with_arrows import * 
+
+
 INT = 'INT'
 FLOAT = 'FLOAT'
 PLUS = 'PLUS'
@@ -6,14 +10,23 @@ KRAT = 'KRAT'
 DEL = 'DEL'
 OKLEPAJ = 'OKLEPAJ'
 ZAKLEPAJ = 'ZAKLEPAJ'
+KONEC = 'KONEC'
+
+
 #konstanta za preverjanje števk
 DIGITS = '0123456789'
 #Tokeni
 class Token:
     #konstruktor
-    def __init__(self, type_, value = None):
+    def __init__(self, type_, value = None, posStart = None, posEnd = None):
         self.type = type_
         self.value = value
+        if posStart:  
+            self.posStart = posStart.copy()
+            self.posEnd = posStart.copy()
+            self.posEnd.advance()
+
+        if posEnd:  self.posEnd = posEnd.copy()
     #metoda za reprezentacijo objekta
     def __repr__(self):
         if self.value: return f'{self.type}:{self.value}'
@@ -41,34 +54,36 @@ class Lexer:
             elif self.currentChar in DIGITS:
                 tokens.append(self.makeNumber())
             elif self.currentChar == '+':
-                tokens.append(Token(PLUS))
+                tokens.append(Token(PLUS, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '-':
-                tokens.append(Token(MINUS))
+                tokens.append(Token(MINUS, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '/':
-                tokens.append(Token(DEL))
+                tokens.append(Token(DEL, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '*':   
-                tokens.append(Token(KRAT))
+                tokens.append(Token(KRAT, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '(':
-                tokens.append(Token(OKLEPAJ))
+                tokens.append(Token(OKLEPAJ, posStart = self.pos))
                 self.advance()
             elif self.currentChar == ')':
-                tokens.append(Token(ZAKLEPAJ))
+                tokens.append(Token(ZAKLEPAJ, posStart = self.pos))
                 self.advance()
             else:
                 posStart = self.pos.copy()
                 char = self.currentChar
                 self.advance()
                 return [], NotSupportedCharacterError(posStart, self.pos,"'" + char + "'")
+        tokens.append(Token(KONEC, posStart = self.pos))
         return tokens, None
     
 
     def makeNumber(self):
         numStr = ''
         dotCount = 0
+        posStart = self.pos.copy()
         while self.currentChar != None and self.currentChar in DIGITS + '.':
             if self.currentChar == '.':
                 if dotCount == 1: break
@@ -78,9 +93,9 @@ class Lexer:
                 numStr += self.currentChar
             self.advance()
         if  dotCount == 0:
-            return Token(INT, int(numStr))
+            return Token(INT, int(numStr), posStart, self.pos)
         else:
-            return Token(FLOAT, float(numStr))
+            return Token(FLOAT, float(numStr), posStart, self.pos)
 #Razred za napake
 class Error:
     def __init__(self, posStart, posEnd, errorName, details):
@@ -91,10 +106,14 @@ class Error:
     def as_string(self):
         result = f'{self.errorName}: {self.details}'
         result += f' File {self.posStart.fileName}, line {self.posStart.line + 1}'
+        result += '\n\n' + string_with_arrows(self.posStart.fileText, self.posStart)
         return result
 class NotSupportedCharacterError(Error):
     def __init__(self, posStart, posEnd, details):
         super().__init__(posStart, posEnd, 'Character is not supported', details)
+class InvalidSyntaxError(Error):
+    def __init__(self, posStart, posEnd, details):
+        super().__init__(posStart, posEnd, 'Invalid Syntax', details)
 #Pozicija
 class Position:
     def __init__(self, ind, line, col, fileName, fileText):
@@ -103,7 +122,7 @@ class Position:
         self.col = col
         self.fileName = fileName
         self.fileText = fileText
-    def advance(self, currentChar):
+    def advance(self, currentChar = None):
         self.ind += 1
         self.col += 1
 
@@ -128,6 +147,37 @@ class BinOpNode:
     def __repr__(self):
         return f'{self.lNode}, {self.opTok}, {self.rNode}'
 
+class UnaryOpNode:
+    def __init__(self, opTok, node):
+        self.opTok = opTok
+        self.node = node
+    def __repr__(self):
+        return f'({self.opTok}, {self.node})'
+
+
+#Rezultat parserja
+class ParseResult:
+    def __init__(self):
+        self.error = None
+        self.node = None
+
+    def register(self, res):
+        if isinstance(res, ParseResult):
+            if res.error: self.error = res.error 
+            return res.node
+        return res
+    
+    def success(self, node):
+        self.node = node
+        return self
+
+
+    def failure(self, error):
+        self.error = error
+        return self
+    
+
+#Parser
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -142,16 +192,37 @@ class Parser:
     
     def parse(self):
         res = self.expr()
+        if not res.error and self.currentTok.type != KONEC: 
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected '+', '-', '*' or '/'"))
         return res
 
 
     #enota
     def factor(self):
+        res = ParseResult()
         tok = self.currentTok
 
-        if tok.type in (INT, FLOAT):
-            self.advance()
-            return NumberNode(tok)
+        if tok.type in (PLUS, MINUS):
+            res.register(self.advance())
+            factor = res.register(self.factor())
+            if res.error: return res
+            else: return res.success(UnaryOpNode(tok, factor))
+        elif tok.type in (INT, FLOAT):
+            res.register(self.advance())
+            return res.success(NumberNode(tok))
+        elif tok.type == OKLEPAJ:
+            res.register(self.advance())
+            expr = res. register(self.expr())
+            if res.error: return res
+            if self.currentTok.type == ZAKLEPAJ:
+                res.register(self.advance())
+                return res.success(expr)
+            else: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ')'"))
+
+
+
+
+        return res.failure(InvalidSyntaxError(tok.posStart, tok.posEnd, "Expected int or float"))
 
     # factor *|/ factor
     def term(self):
@@ -162,15 +233,18 @@ class Parser:
         return self.binOp(self.term, (PLUS, MINUS))
     
     def binOp(self, func, ops):
-        left = func()
+        res = ParseResult()
+        left = res.register(func())
+        if res.error: return res 
 
         while self.currentTok.type in ops:
             opTok = self.currentTok
-            self.advance()
-            right = func()
+            res.register(self.advance())
+            right = res.register(func())
+            if res.error: return res
             left = BinOpNode(left, opTok, right)
             
-        return left
+        return res.success(left)
 
 #Run
 def run(fileName, text):
@@ -183,4 +257,4 @@ def run(fileName, text):
     ast = parser.parse()
 
 
-    return ast, None
+    return ast.node, ast.error

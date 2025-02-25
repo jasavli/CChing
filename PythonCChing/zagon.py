@@ -1,8 +1,8 @@
 import program
 
 while True:
-		text = input('basic > ')
+		text = input('C$ > ')
 		result, error = program.run('<stdin>', text)
 
 		if error: print(error.as_string())
-		else: print(result)
+		elif result: print(result)

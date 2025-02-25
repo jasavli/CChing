@@ -15,6 +15,12 @@ import string
 IDENTIFIKATOR = 'IDENTIFIKATOR'
 KEYWORD = 'KEYWORD'
 ENAKO = 'ENAKO'
+DVOJNIENAKO = 'DVOJNIENAKO'
+NIENAKO = 'NIENAKO'
+MANJ = 'MANJ'
+VEC = 'VEC'
+MANJALIENAKO = 'MANJALIENAKO'
+VECALIENAKO = 'VECALIENAKO'
 INT = 'INT'
 FLOAT = 'FLOAT'
 PLUS = 'PLUS'
@@ -27,7 +33,18 @@ ZAKLEPAJ = 'ZAKLEPAJ'
 KONEC = 'KONEC'
 
 KEYWORDS = [
-    'VAR'
+    'VAR',
+    'AND', 
+    'OR', 
+    'NOT',
+    'IF',
+    'THEN',
+    'ELIF',
+    'ELSE',
+    'FOR',
+    'TO',
+    'STEP',
+    'WHILE'
 ]
 
 #konstante
@@ -89,9 +106,6 @@ class Lexer:
             elif self.currentChar == '^':
                 tokens.append(Token(POTENCA, posStart = self.pos))
                 self.advance()
-            elif self.currentChar == '=':
-                tokens.append(Token(ENAKO, posStart = self.pos))
-                self.advance()
             elif self.currentChar == '*':   
                 tokens.append(Token(KRAT, posStart = self.pos))
                 self.advance()
@@ -101,6 +115,16 @@ class Lexer:
             elif self.currentChar == ')':
                 tokens.append(Token(ZAKLEPAJ, posStart = self.pos))
                 self.advance()
+            elif self.currentChar == '!':
+                tok, error = self.makeNotEquals()
+                if error: return [], error
+                tokens.append(tok)
+            elif self.currentChar == '=':
+                tokens.append(self.makeEquals())
+            elif self.currentChar == '<':
+                tokens.append(self.makeLess())
+            elif self.currentChar == '>':
+                tokens.append(self.makeMore())
             else:
                 posStart = self.pos.copy()
                 char = self.currentChar
@@ -138,6 +162,45 @@ class Lexer:
         tokType = KEYWORD if idStr in KEYWORDS else IDENTIFIKATOR
         return Token(tokType, idStr, posStart, self.pos)
 
+    def makeNotEquals(self):
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '=':
+            self.advance()
+            return Token(NIENAKO, posStart = posStart, posEnd = self.pos), None
+        self.advance()
+        return None, ExpectedCharError(posStart, self.pos, "'=' (after !)")
+    
+    def makeEquals(self):
+        tokType = ENAKO
+        posStart = self.pos.copy()
+        self.advance()
+        
+        if self.currentChar == "=":
+            self.advance()
+            tokType = DVOJNIENAKO
+        return Token(tokType, posStart = posStart, posEnd = self.pos)
+
+    def makeLess(self):
+        tokType = MANJ
+        posStart = self.pos.copy()
+        self.advance()
+        
+        if self.currentChar == "=":
+            self.advance()
+            tokType = MANJALIENAKO
+        return Token(tokType, posStart = posStart, posEnd = self.pos)
+
+    def makeMore(self):
+        tokType = VEC
+        posStart = self.pos.copy()
+        self.advance()
+        
+        if self.currentChar == "=":
+            self.advance()
+            tokType = VECALIENAKO
+        return Token(tokType, posStart = posStart, posEnd = self.pos)
 
 
 #Razred za napake
@@ -160,6 +223,10 @@ class InvalidSyntaxError(Error):
     def __init__(self, posStart, posEnd, details):
         super().__init__(posStart, posEnd, 'Invalid Syntax', details)
 
+class ExpectedCharError(Error):
+        def __init__(self, posStart, posEnd, details):
+            super().__init__(posStart, posEnd, 'Expected character', details)
+
 class RuntimeError(Error):
     def __init__(self, posStart, posEnd, details, context):
         super().__init__(posStart, posEnd, 'Runtime error', details)
@@ -179,6 +246,10 @@ class RuntimeError(Error):
             pos = context.parentEntryPos
             context = context.parent
         return 'Traceback: \n' + result
+    
+    
+
+
 #Pozicija
 class Position:
     def __init__(self, ind, line, col, fileName, fileText):
@@ -242,6 +313,31 @@ class UnaryOpNode:
 
     def __repr__(self):
         return f'({self.opTok}, {self.node})'
+
+class IfNode:
+    def __init__(self, cases, elseCase):
+        self.cases = cases
+        self.elseCase = elseCase
+        self.posStart = self.cases[0][0].posStart
+        self.posEnd = self.elseCase or self.cases[len(self.cases) - 1][0].posEnd
+
+class ForNode:
+    def __init__(self, varNameTok, startValueNode, endValueNode, stepValueNode, bodyNode):
+        self.varNameTok = varNameTok
+        self.startValueNode = startValueNode
+        self.endValueNode = endValueNode
+        self.stepValueNode = stepValueNode
+        self.bodyNode = bodyNode
+
+        self.posStart = self.varNameTok.posStart
+        self.posEnd = self.bodyNode.posEnd
+class WhileNode:
+    def __init__(self, conditionNode, bodyNode):
+        self.conditionNode = conditionNode
+        self.bodyNode = bodyNode
+
+        self.posStart = self.conditionNode.posStart
+        self.posEnd = self.bodyNode.posEnd 
 
 
 #Rezultat parserja
@@ -331,15 +427,137 @@ class Parser:
             expr = res.register(self.expr())
             if res.error: return res
             return res.success(VarAssignNode(varName, expr))
-        node = res.register(self.binOp(self.term, (PLUS, MINUS)))
+        node = res.register(self.binOp(self.compExpr, ((KEYWORD, "AND"),(KEYWORD, "OR"))))
 
-        if res.error: return res.failure(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', int, float, identifier, '+', '-', or '('")
+        if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', int, float, identifier, '+', '-', or '('"))
         return res.success(node)
+
+    def ifExpr(self):
+        res = ParseResult()
+        cases = []
+        elseCase = None
+        if not self.currentTok.matches(KEYWORD, 'IF'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'IF'"))
+        res.registerAdvancement()
+        self.advance()
+
+        condition = res.register(self.expr())
+        if res.error: return res
+
+        if not self.currentTok.matches(KEYWORD, 'THEN'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
+        res.registerAdvancement()
+        self.advance()
+
+        expr = res.register(self.expr())
+        if res.error: return res
+        cases.append((condition, expr))
+
+        
+
+        while self.currentTok.matches(KEYWORD, 'ELIF'):
+            res.registerAdvancement()
+            self.advance()
+
+            condition = res.register(self.expr())
+            if res.error: return res
+
+            if not self.currentTok.matches(KEYWORD, 'THEN'):
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
+            
+            res.registerAdvancement()
+            self.advance()
+
+            expr = res.register(self.expr())
+            if res.error: return res
+            cases.append((condition, expr))
+
+            if self.currentTok.matches(KEYWORD, 'ELSE'):
+                res.registerAdvancement()
+                self.advance()
+
+                elseCase = res.register(self.expr())
+                if res.error: return res
+
+        return res.success(IfNode(cases, elseCase))
+
+    def forExpr(self):
+        res = ParseResult()
+
+        if not self.currentTok.matches(KEYWORD, 'FOR'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'FOR'"))
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type != IDENTIFIKATOR:
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected identifier"))
+
+        varName = self.currentTok
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type != ENAKO:
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected '='"))
+
+        res.registerAdvancement()
+        self.advance()
+
+        startValue = res.register(self.expr())
+        if res.error: return res
+
+        if not self.currentTok.matches(KEYWORD, 'TO'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'TO'"))
+        res.registerAdvancement()
+        self.advance()
+
+        endValue = res.register(self.expr())
+        if res.error: return res
+
+        if self.currentTok.matches(KEYWORD, 'STEP'):
+            res.registerAdvancement()
+            self.advance()
+
+            stepValue = res.register(self.expr())
+            if res.error: return res
+        else:
+            stepValue = None
+        
+        if not self.currentTok.matches(KEYWORD, 'THEN'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
+        res.registerAdvancement()
+        self.advance()
+
+        body = res.register(self.expr())
+        if res.error: return res
+        return res.success(ForNode(varName, startValue, endValue, stepValue, body))
+    
+    def whileExpr(self):
+        res = ParseResult()
+
+        if not self.currentTok.matches(KEYWORD, 'WHILE'):
+            return res.failure(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'WHILE'")
+        res.registerAdvancement()
+        self.advance()
+
+        condition = res.register(self.expr())
+        if res.error: return res
+
+        if not self.currentTok.matches(KEYWORD, 'THEN'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
+        
+        res.registerAdvancement()
+        self.advance()
+
+        body = res.register(self.expr())
+        if res.error: return res
+
+        return res.success(WhileNode(condition, body))
+
 
     #atom
     def atom(self):
         res = ParseResult()
-        tok = self.currentTok
+        tok = self.currentTok 
         
         if tok.type in (INT, FLOAT):
             res.registerAdvancement()
@@ -359,8 +577,40 @@ class Parser:
                 self.advance()
                 return res.success(expr)
             else: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ')'"))
+        elif tok.matches(KEYWORD, 'IF'):
+            ifExpr = res.register(self.ifExpr())
+            if res.error: return res
+            return res.success(ifExpr)
+        
+        elif tok.matches(KEYWORD, 'FOR'):
+            forExpr = res.register(self.forExpr())
+            if res.error: return res
+            return res.success(forExpr)
+        
+        elif tok.matches(KEYWORD, 'WHILE'):
+            whileExpr = res.register(self.whileExpr())
+            if res.error: return res
+            return res.success(whileExpr)
+
         return res.failure(InvalidSyntaxError(tok.posStart, tok.posEnd, "Expected int, float, identifier, '+', '-' or '('"))
     
+    def compExpr(self):
+        res = ParseResult()
+
+        if self.currentTok.matches(KEYWORD, 'NOT'):
+            opTok = self.currentTok
+            res.registerAdvancement()
+            self.advance()
+
+            node = res.register(self.compExpr())
+            if res.error: return res
+            return res.success(UnaryOpNode(opTok, node))
+
+        node = res.register(self.binOp(self.arithExpr, (DVOJNIENAKO, NIENAKO, VEC, MANJ, VECALIENAKO, MANJALIENAKO)))
+        if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected int, float, identifier, '+', '-', '(' or 'NOT'"))
+        return res.success(node)
+    def arithExpr(self):
+        return self.binOp(self.term, (PLUS, MINUS))
     
     def binOp(self, func_a, ops, func_b = None):
         if func_b == None: func_b = func_a
@@ -368,7 +618,7 @@ class Parser:
         left = res.register(func_a())
         if res.error: return res 
 
-        while self.currentTok.type in ops:
+        while self.currentTok.type in ops or (self.currentTok.type, self.currentTok.value) in ops:
             opTok = self.currentTok
             res.registerAdvancement()
             self.advance()
@@ -437,11 +687,50 @@ class Number:
         if isinstance(other, Number):
             return Number(self.value ** other.value).setContext(self.context), None
         
+    def getComparisonEqual(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value == other.value)).setContext(self.context), None
+        
+    def getComparisonNotEqual(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value != other.value)).setContext(self.context), None
+        
+    def getComparisonLess(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value < other.value)).setContext(self.context), None
+        
+    def getComparisonMore(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value > other.value)).setContext(self.context), None
+        
+    def getComparisonLessOrEqual(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value <= other.value)).setContext(self.context), None
+        
+    def getComparisonMoreOrEqual(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value >= other.value)).setContext(self.context), None
+        
+    def andBy(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value and other.value)).setContext(self.context), None
+        
+    def orBy(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value or other.value)).setContext(self.context), None
+
+    def notted(self):
+        return Number(1 if self.value == 0 else 0). setContext(self.context), None
+
     def copy(self):
         copy = Number(self.value)
         copy.setPos(self.posStart,self.posEnd)
         copy.setContext(self.context)
         return copy
+    
+    def isTrue(self):
+        return self.value != 0
+
 
 
     def __repr__(self):
@@ -486,8 +775,7 @@ class Interpreter:
     def visitNumberNode(self, node, context):
         return RTResult().success(Number(node.tok.value).setContext(context).setPos(node.posStart, node.posEnd))
 
-    def visitBinOpNode(self, node, context):
-        
+    def visitBinOpNode(self, node, context):  
         res = RTResult()
         left = res.register(self.visit(node.lNode, context))
         if res.error: return res
@@ -503,6 +791,22 @@ class Interpreter:
             result, error = left.divideBy(right)
         elif node.opTok.type == POTENCA:
             result, error = left.powerBy(right)
+        elif node.opTok.type == DVOJNIENAKO:
+            result, error = left.getComparisonEqual(right)
+        elif node.opTok.type == NIENAKO:
+            result, error = left.getComparisonNotEqual(right)
+        elif node.opTok.type == VEC:
+            result, error = left.getComparisonMore(right)
+        elif node.opTok.type == MANJ:
+            result, error = left.getComparisonLess(right)
+        elif node.opTok.type == VECALIENAKO:
+            result, error = left.getComparisonMoreOrEqual(right)
+        elif node.opTok.type == MANJALIENAKO:
+            result, error = left.getComparisonLessOrEqual(right)
+        elif node.opTok.matches(KEYWORD, 'AND'):
+            result, error = left.andBy(right)
+        elif node.opTok.matches(KEYWORD, 'OR'):
+            result, error = left.orBy(right)
 
         if error: return res.failure(error)
         else: return res.success(result.setPos(node.posStart, node.posEnd))
@@ -515,6 +819,8 @@ class Interpreter:
         error = None
         if node.opTok.type == MINUS: 
             number, error = number.multiplyBy(Number(-1))
+        elif node.opTok.matches(KEYWORD, 'NOT'):
+            number,error = number.notted()
 
         if error: return res.failure(error)
         else: return res.success(number.setPos(node.posStart, node.posEnd))
@@ -538,8 +844,67 @@ class Interpreter:
 
         context.symbolTable.set(varName, value)
         return res.success(value)
+    
+    def visitIfNode(self, node, context):
+        res = RTResult()
 
+        for condition, expr in node.cases:
+            conditionValue = res.register(self.visit(condition, context))
+            if res.error: return res
+            
+            if conditionValue.isTrue():
+                exprValue = res.register(self.visit(expr, context))
+                if res.error: return res
+                return res.success(exprValue)
+        if node.elseCase:
+            elseValue = res.register(self.visit(node.elseCase, context))
+            if res.error: return res
+            return res.success(elseValue)
+        return res.success(None)
+    
+    def visitForNode(self, node, context):
+        res = RTResult()
 
+        startValue = res.register(self.visit(node.startValueNode, context))
+        if res.error: return res
+
+        endValue = res.register(self.visit(node.endValueNode, context))
+        if res.error: return res
+
+        if node.stepValueNode:
+            stepValue = res.register(self.visit(node.stepValueNode, context))
+            if res.error: return res
+        else:
+            stepValue = Number(1)
+        
+        i = startValue.value
+
+        if stepValue.value >= 0:
+            condition = lambda: i < endValue.value
+        else:
+            condition = lambda: i > endValue.value
+
+        while condition():
+            context.symbolTable.set(node.varNameTok.value, Number(i))
+            i += stepValue.value
+
+            res.register(self.visit(node.bodyNode, context))
+            if res.error: return res
+
+        return res.success(None)
+
+    def visitWhileNode(self, node, context):
+        res = RTResult()
+
+        while True:
+            condition = res.register(self.visit(node.conditionNode, context))
+            if res.error: return res
+
+            if not condition.isTrue(): break
+
+            res.register(self.visit(node.bodyNode, context))
+            if res.error: return res
+        return res.success(None)
 
 #Run
 

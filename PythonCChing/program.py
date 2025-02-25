@@ -31,6 +31,8 @@ POTENCA = 'POTENCA'
 OKLEPAJ = 'OKLEPAJ'
 ZAKLEPAJ = 'ZAKLEPAJ'
 KONEC = 'KONEC'
+VEJICA = 'VEJICA'
+PUSCICA = 'PUSCICA'
 
 KEYWORDS = [
     'VAR',
@@ -44,7 +46,8 @@ KEYWORDS = [
     'FOR',
     'TO',
     'STEP',
-    'WHILE'
+    'WHILE',
+    'FUN'
 ]
 
 #konstante
@@ -98,8 +101,7 @@ class Lexer:
                 tokens.append(Token(PLUS, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '-':
-                tokens.append(Token(MINUS, posStart = self.pos))
-                self.advance()
+                tokens.append(self.makeMinusOrArrow())
             elif self.currentChar == '/':
                 tokens.append(Token(DEL, posStart = self.pos))
                 self.advance()
@@ -125,6 +127,9 @@ class Lexer:
                 tokens.append(self.makeLess())
             elif self.currentChar == '>':
                 tokens.append(self.makeMore())
+            elif self.currentChar == ',':
+                tokens.append(Token(VEJICA, posStart = self.pos))
+                self.advance()
             else:
                 posStart = self.pos.copy()
                 char = self.currentChar
@@ -161,6 +166,19 @@ class Lexer:
         
         tokType = KEYWORD if idStr in KEYWORDS else IDENTIFIKATOR
         return Token(tokType, idStr, posStart, self.pos)
+    
+    def makeMinusOrArrow(self):
+        tokType = MINUS
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '>':
+            self.advance()
+            tokType = PUSCICA
+
+        return Token(tokType, posStart = posStart, posEnd = self.pos)
+
+
 
     def makeNotEquals(self):
         posStart = self.pos.copy()
@@ -338,7 +356,32 @@ class WhileNode:
 
         self.posStart = self.conditionNode.posStart
         self.posEnd = self.bodyNode.posEnd 
+class FuncDefNode:
+    def __init__(self, varNameTok, argNameToks, bodyNode):
+        self.varNameTok = varNameTok
+        self.argNameToks = argNameToks
+        self.bodyNode = bodyNode
 
+        if self.varNameTok:
+            self.posStart = self.varNameTok.posStart
+        elif len(self.argNameToks)  > 0:
+            self.posStart = self.argNameToks[0].posStart
+        else:
+            self.posStart = self.bodyNode.posStart
+        
+        self.posEnd = self.bodyNode.posEnd
+class CallNode:
+    def __init__(self, nodeToCall, argNodes):
+        self.nodeToCall = nodeToCall
+        self.argNodes = argNodes
+
+        self.posStart = self.nodeToCall.posStart
+
+        if len(self.argNodes) > 0:
+            self.posEnd = self.argNodes[len(self.argNodes) - 1].posEnd
+        else:
+            self.posEnd = self.nodeToCall.posEnd
+        
 
 #Rezultat parserja
 class ParseResult:
@@ -386,7 +429,7 @@ class Parser:
         return res
 
     def power(self):
-        return self.binOp(self.atom, (POTENCA,), self.factor)
+        return self.binOp(self.call, (POTENCA,), self.factor)
 
     #enota
     def factor(self):
@@ -429,8 +472,89 @@ class Parser:
             return res.success(VarAssignNode(varName, expr))
         node = res.register(self.binOp(self.compExpr, ((KEYWORD, "AND"),(KEYWORD, "OR"))))
 
-        if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', int, float, identifier, '+', '-', or '('"))
+        if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', int, float, identifier, '+', '-', or '('"))
         return res.success(node)
+
+    def call(self):
+        res = ParseResult()
+        atom = res.register(self.atom())
+        if res.error: return res
+
+        if self.currentTok.type == OKLEPAJ:
+            res.registerAdvancement()
+            self.advance()
+            argNodes = []
+
+            if self.currentTok.type == ZAKLEPAJ:
+                res.registerAdvancement()
+                self.advance()
+            else:
+                argNodes.append(res.register(self.expr()))
+                if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or ')'"))
+                
+                while self.currentTok.type == VEJICA:
+                    res.registerAdvancement()
+                    self.advance()
+
+                    argNodes.append(res.register(self.expr()))
+                    if res.error: return res
+
+                if self.currentTok.type != ZAKLEPAJ:
+                    return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ',' or ')'"))
+                res.registerAdvancement()
+                self.advance()
+            return res.success(CallNode(atom, argNodes))
+        return res.success(atom)
+
+
+
+    #atom
+    def atom(self):
+        res = ParseResult()
+        tok = self.currentTok 
+        
+        if tok.type in (INT, FLOAT):
+            res.registerAdvancement()
+            self.advance()
+            return res.success(NumberNode(tok))
+        elif tok.type  == IDENTIFIKATOR:
+            res.registerAdvancement()
+            self.advance()
+            return res.success(VarAccessNode(tok))
+        elif tok.type == OKLEPAJ:
+            res.registerAdvancement()
+            self.advance()
+            expr = res. register(self.expr())
+            if res.error: return res
+            if self.currentTok.type == ZAKLEPAJ:
+                res.registerAdvancement()
+                self.advance()
+                return res.success(expr)
+            else: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ')'"))
+        elif tok.matches(KEYWORD, 'IF'):
+            ifExpr = res.register(self.ifExpr())
+            if res.error: return res
+            return res.success(ifExpr)
+        
+        elif tok.matches(KEYWORD, 'FOR'):
+            forExpr = res.register(self.forExpr())
+            if res.error: return res
+            return res.success(forExpr)
+        
+        elif tok.matches(KEYWORD, 'WHILE'):
+            whileExpr = res.register(self.whileExpr())
+            if res.error: return res
+            return res.success(whileExpr)
+        
+        elif tok.matches(KEYWORD, 'FUN'):
+            funcDef = res.register(self.funcDef())
+            if res.error: return res
+            return res.success(funcDef)
+
+        return res.failure(InvalidSyntaxError(tok.posStart, tok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or ')'"))
+    
+
+
 
     def ifExpr(self):
         res = ParseResult()
@@ -553,47 +677,70 @@ class Parser:
 
         return res.success(WhileNode(condition, body))
 
+    
 
-    #atom
-    def atom(self):
+
+
+
+
+    def funcDef(self):
         res = ParseResult()
-        tok = self.currentTok 
+
+        if not self.currentTok.matches(KEYWORD, 'FUN'):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'FUN'"))
         
-        if tok.type in (INT, FLOAT):
+        res.registerAdvancement()
+        self.advance()
+
+
+        if self.currentTok.type == IDENTIFIKATOR:
+            varNameTok = self.currentTok
             res.registerAdvancement()
             self.advance()
-            return res.success(NumberNode(tok))
-        elif tok.type  == IDENTIFIKATOR:
-            res.registerAdvancement()
+            if self.currentTok.type != OKLEPAJ:
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected '('"))
+        else:
+            varNameTok = None
+            if self.currentTok.type != OKLEPAJ:
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected identifier or '('"))
+        res.registerAdvancement()
+        self.advance()
+
+        argNameToks = []
+        if self.currentTok.type == IDENTIFIKATOR:
+            argNameToks.append(self.currentTok)
             self.advance()
-            return res.success(VarAccessNode(tok))
-        elif tok.type == OKLEPAJ:
-            res.registerAdvancement()
-            self.advance()
-            expr = res. register(self.expr())
-            if res.error: return res
-            if self.currentTok.type == ZAKLEPAJ:
+
+            while self.currentTok.type == VEJICA:
                 res.registerAdvancement()
                 self.advance()
-                return res.success(expr)
-            else: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ')'"))
-        elif tok.matches(KEYWORD, 'IF'):
-            ifExpr = res.register(self.ifExpr())
-            if res.error: return res
-            return res.success(ifExpr)
-        
-        elif tok.matches(KEYWORD, 'FOR'):
-            forExpr = res.register(self.forExpr())
-            if res.error: return res
-            return res.success(forExpr)
-        
-        elif tok.matches(KEYWORD, 'WHILE'):
-            whileExpr = res.register(self.whileExpr())
-            if res.error: return res
-            return res.success(whileExpr)
 
-        return res.failure(InvalidSyntaxError(tok.posStart, tok.posEnd, "Expected int, float, identifier, '+', '-' or '('"))
-    
+            if self.currentTok.type == IDENTIFIKATOR:
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected identifier"))
+            argNameToks.append(self.currentTok)
+            res.registerAdvancement()
+            self.advance()
+
+            if self.currentTok.type != ZAKLEPAJ:
+                    return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected ',' ')'"))
+        else: 
+            if self.currentTok.type != ZAKLEPAJ:
+                    return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected ',' ')'"))
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type != PUSCICA:
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected '->'"))
+        res.registerAdvancement()
+        self.advance()
+        nodeToReturn = res.register(self.expr())
+        if res.error: return res
+
+        return res.success(FuncDefNode(varNameTok, argNameToks, nodeToReturn))
+
+
+
+
     def compExpr(self):
         res = ParseResult()
 
@@ -652,7 +799,81 @@ class RTResult:
 
 
 #vrednosti
-class Number:
+class Value:
+	def __init__(self):
+		self.setPos()
+		self.setContext()
+
+	def setPos(self, posStart=None, posEnd=None):
+		self.posStart = posStart
+		self.posEnd = posEnd
+		return self
+
+	def setContext(self, context=None):
+		self.context = context
+		return self
+
+	def addedTo(self, other):
+		return None, self.illegalOperation(other)
+
+	def subtractedBy(self, other):
+		return None, self.illegalOperation(other)
+
+	def multiplyBy(self, other):
+		return None, self.illegalOperation(other)
+
+	def divideBy(self, other):
+		return None, self.illegalOperation(other)
+
+	def powerBy(self, other):
+		return None, self.illegalOperation(other)
+
+	def getComparisonEqual(self, other):
+		return None, self.illegalOperation(other)
+
+	def getComparisonNotEqual(self, other):
+		return None, self.illegalOperation(other)
+
+	def getComparisonLess(self, other):
+		return None, self.illegalOperation(other)
+
+	def getComparisonMore(self, other):
+		return None, self.illegalOperation(other)
+
+	def getComparisonLessOrEqual(self, other):
+		return None, self.illegalOperation(other)
+
+	def getComparisonMoreOrEqual(self, other):
+		return None, self.illegalOperation(other)
+
+	def andBy(self, other):
+		return None, self.illegalOperation(other)
+
+	def orBy(self, other):
+		return None, self.illegalOperation(other)
+
+	def notted(self, other):
+		return None, self.illegalOperation(other)
+
+	def execute(self, args):
+		return RTResult().failure(self.illegalOperation())
+
+	def copy(self):
+		raise Exception('No copy method defined')
+
+	def is_true(self):
+		return False
+
+	def illegalOperation(self, other=None):
+		if not other: other = self
+		return RuntimeError(
+			self.pos_start, other.pos_end,
+			'Illegal operation',
+			self.context
+		)
+
+
+class Number(Value):
     def __init__(self, value):
         self.value = value
         self.setPos()
@@ -669,56 +890,69 @@ class Number:
     def addedTo(self, other):
         if isinstance(other, Number):
             return Number(self.value + other.value).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def subtractedBy(self, other):
         if isinstance(other, Number):
             return Number(self.value - other.value).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def multiplyBy(self, other):
         if isinstance(other, Number):
             return Number(self.value * other.value).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def divideBy(self, other):
         if isinstance(other, Number):
             if other.value == 0: return None, RuntimeError(other.posStart, other.posEnd, "Division by zero", self.context)
             return Number(self.value / other.value).setContext(self.context), None
-
+        else: 
+            return None, Value.illegalOperation(self, other)
     def powerBy(self, other):
         if isinstance(other, Number):
             return Number(self.value ** other.value).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonEqual(self, other):
         if isinstance(other, Number):
             return Number(int(self.value == other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonNotEqual(self, other):
         if isinstance(other, Number):
             return Number(int(self.value != other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonLess(self, other):
         if isinstance(other, Number):
             return Number(int(self.value < other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonMore(self, other):
         if isinstance(other, Number):
             return Number(int(self.value > other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonLessOrEqual(self, other):
         if isinstance(other, Number):
             return Number(int(self.value <= other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonMoreOrEqual(self, other):
         if isinstance(other, Number):
             return Number(int(self.value >= other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def andBy(self, other):
         if isinstance(other, Number):
             return Number(int(self.value and other.value)).setContext(self.context), None
-        
+        else: 
+            return None, Value.illegalOperation(self, other)
     def orBy(self, other):
         if isinstance(other, Number):
             return Number(int(self.value or other.value)).setContext(self.context), None
-
+        else: 
+            return None, Value.illegalOperation(self, other)
     def notted(self):
         return Number(1 if self.value == 0 else 0). setContext(self.context), None
 
@@ -736,6 +970,45 @@ class Number:
     def __repr__(self):
         return str(self.value)
     
+class Function(Value):
+    def __init__(self, name, bodyNode, argNames):
+        super().__init__()
+        self.name = name or "<anonymous>"
+        self.bodyNode = bodyNode
+        self.argNames = argNames
+    def execute(self, args):
+        res = RTResult()
+
+        interpreter = Interpreter()
+        newContext = Context(self.name, self.context, self.posStart)
+        newContext.symbolTable = SymbolTable(newContext.parent.symbolTable)
+
+        if len(args) > len(self.argNames):
+            return res.failure(RuntimeError(self.posStart, self.posEnd, f"{len(args) - len(self.argNames)} too many argy passed into '{self.name}'", self.context))
+        if len(args) < len(self.argNames):
+            return res.failure(RuntimeError(self.posStart, self.posEnd, f"{len(self.argNames) - len(self.args)} too few argy passed into '{self.name}'", self.context))
+        
+        for i in range(len(args)):
+            argName = self.argNames[i]
+            argValue = args[i]
+            argValue.setContext(newContext)
+            newContext.symbolTable.set(argName, argValue )
+        value = res.register(interpreter.visit(self.bodyNode, newContext))
+        if res.error: return res
+        return res.success(value)
+    
+    def copy(self):
+        copy = Function(self.name, self.bodyNode, self.argNames)
+        copy.setContext(self.context)
+        copy.setPos(self.posStart, self.posEnd)
+        return copy
+    def __repr__(self):
+        return f"<function {self.name}>"
+
+
+
+
+
 #Bolj podrobni error
 class Context:
     def __init__(self, displayName, parent = None, parentEntryPos = None):
@@ -745,9 +1018,9 @@ class Context:
         self.symbolTable = None
          
 class SymbolTable:
-    def __init__(self):
+    def __init__(self, parent = None):
         self.symbols = {}
-        self.parent = None 
+        self.parent = parent 
     def get(self, name):
         value = self.symbols.get(name, None)
         if value == None and self.parent:
@@ -905,9 +1178,38 @@ class Interpreter:
             res.register(self.visit(node.bodyNode, context))
             if res.error: return res
         return res.success(None)
+    
+    def visitFuncDefNode(self, node, context):
+        res = RTResult()
+
+        funcName = node.varNameTok.value if node.varNameTok else None
+        bodyNode = node.bodyNode
+        argNames = [argName.value for argName in node.argNameToks]
+        funcValue = Function(funcName, bodyNode, argNames).setContext(context).setPos(node.posStart, node.posEnd)
+
+        if node.varNameTok:
+            context.symbolTable.set(funcName, funcValue)
+        
+        return res.success(funcValue)
+    
+    def visitCallNode(self, node, context):
+        res = RTResult()
+        args = []
+
+        valueToCall = res.register(self.visit(node.nodeToCall, context))
+        if res.error: return res
+        valueToCall = valueToCall.copy().setPos(node.posStart, node.posEnd)
+
+        for argNode in node.argNodes:
+            args.append(res.register(self.visit(argNode, context)))
+            if res.error: return res
+
+        returnvalue = res.register(valueToCall.execute(args))
+        if res.error: return res
+
+        return res.success(returnvalue)
 
 #Run
-
 globalSymbolTable = SymbolTable()
 globalSymbolTable.set("null", Number(0))
 

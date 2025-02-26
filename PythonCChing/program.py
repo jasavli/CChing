@@ -2,7 +2,6 @@
 Za naprej:
 Stringi in inti skupaj
 Logicne operacije med stringi (in stevilkami)
-%
 """
 
 
@@ -426,6 +425,15 @@ class CallNode:
             self.posEnd = self.argNodes[len(self.argNodes) - 1].posEnd
         else:
             self.posEnd = self.nodeToCall.posEnd
+class StringConcatNode:
+    def __init__(self, string_node, expr_node):
+        self.string_node = string_node  
+        self.expr_node = expr_node     
+        self.posStart = self.string_node.posStart
+        self.posEnd = self.expr_node.posEnd
+
+    def __repr__(self):
+        return f'(StringConcat: {self.string_node} + {self.expr_node})'
         
 
 #Rezultat parserja
@@ -487,7 +495,7 @@ class Parser:
             factor = res.register(self.factor())
             if res.error: return res
             else: return res.success(UnaryOpNode(tok, factor))
-
+        
         return self.power()
 
     # factor *|/ factor
@@ -565,7 +573,13 @@ class Parser:
         elif tok.type in STRING:
             res.registerAdvancement()
             self.advance()
-            return res.success(StringNode(tok))
+
+            if self.currentTok.type not in (PLUS, MINUS):
+                return res.success(StringNode(tok))
+            expr_node = res.register(self.arithExpr())
+            if res.error: return res
+
+            return res.success(StringConcatNode(StringNode(tok), expr_node))
         elif tok.type  == IDENTIFIKATOR:
             res.registerAdvancement()
             self.advance()
@@ -921,6 +935,7 @@ class Value:
 			'Illegal operation',
 			self.context
 		)
+        
 
 
 class Number(Value):
@@ -941,8 +956,18 @@ class Number(Value):
         if isinstance(other, Number):
             return Number(self.value + other.value).setContext(self.context), None
         elif isinstance(other, String):
-            return String(str(self.value) + other.value).setContext(self.context), None
-        else: 
+            # Če je drugi operand (niz) v celoti številski, seštejemo številke…
+            try:
+                otherNumeric = float(other.value)
+                result = self.value + otherNumeric
+                if result.is_integer():
+                    result = int(result)
+                # Vrni številko (lahko bi jo tudi pretvorili v niz, odvisno od želene semantike)
+                return Number(result).setContext(self.context), None
+            except ValueError:
+                # Drugače pa pretvorimo prvo število v niz in združimo
+                return String(str(self.value) + other.value).setContext(self.context), None
+        else:
             return None, Value.illegalOperation(self, other)
     def subtractedBy(self, other):
         if isinstance(other, Number):
@@ -1067,11 +1092,24 @@ class String(Value):
         super().__init__()
         self.value = value
 
+    def isNumeric(self):
+        try:
+            float(self.value)
+            return True
+        except ValueError:
+            return False
+
     def addedTo(self, other):
         if isinstance(other, String):
             return String(self.value + other.value).setContext(self.context), None
         elif isinstance(other, Number):
-            return String(self.value + str(other.value)).setContext(self.context), None
+            if self.isNumeric():
+                result = float(self.value) + other.value
+                if result.is_integer():
+                    result = int(result)
+                return Number(result).setContext(self.context), None
+            else:
+                return String(self.value + str(other.value)).setContext(self.context), None
         else:
             return None, Value.illegalOperation(self, other)
     
@@ -1081,6 +1119,39 @@ class String(Value):
         else:
             return None, Value.illegalOperation(self, other)
         
+    def getComparisonEqual(self, other):
+        if isinstance(other, String):
+            return Number(int(self.value == other.value)).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
+    def getComparisonNotEqual(self, other):
+        if isinstance(other, String):
+            return Number(int(self.value != other.value)).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
+    def getComparisonLess(self, other):
+        if isinstance(other, String):
+            return Number(int(len(self.value) < len(other.value))).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
+    def getComparisonMore(self, other):
+        if isinstance(other, String):
+            return Number(int(len(self.value) > len(other.value))).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
+    def getComparisonLessOrEqual(self, other):
+        if isinstance(other, String):
+            return Number(int(len(self.value) <= len(other.value))).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
+    def getComparisonMoreOrEqual(self, other):
+        if isinstance(other, String):
+            return Number(int(len(self.value) >= len(other.value))).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
+
+
+
     def is_true(self):
         return len(self.value) > 0
 
@@ -1298,6 +1369,15 @@ class Interpreter:
         if res.error: return res
 
         return res.success(returnvalue)
+    def visitStringConcatNode(self, node, context):
+        res = RTResult()
+        left = res.register(self.visit(node.string_node, context))  # mora biti String
+        if res.error: return res
+        right = res.register(self.visit(node.expr_node, context))   # pričakujemo Number
+        if res.error: return res
+        # Pretvorimo številčni rezultat (right.value) v niz in združimo z left.value.
+        result = String(left.value + str(right.value)).setContext(context)
+        return res.success(result.setPos(node.posStart, node.posEnd))
 
 #Run
 globalSymbolTable = SymbolTable()

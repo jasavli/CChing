@@ -32,6 +32,8 @@ PROCENT = 'PROCENT'
 POTENCA = 'POTENCA'
 OKLEPAJ = 'OKLEPAJ'
 ZAKLEPAJ = 'ZAKLEPAJ'
+OGLATIOKLEPAJ = 'OGLATIOKLEPAJ'
+OGLATIZAKLEPAJ = 'OGLATIZAKLEPAJ'
 KONEC = 'KONEC'
 VEJICA = 'VEJICA'
 PUSCICA = 'PUSCICA'
@@ -123,6 +125,12 @@ class Lexer:
                 self.advance()
             elif self.currentChar == ')':
                 tokens.append(Token(ZAKLEPAJ, posStart = self.pos))
+                self.advance()
+            elif self.currentChar == '[':
+                tokens.append(Token(OGLATIOKLEPAJ, posStart = self.pos))
+                self.advance()
+            elif self.currentChar == ']':
+                tokens.append(Token(OGLATIZAKLEPAJ, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '!':
                 tok, error = self.makeNotEquals()
@@ -434,6 +442,15 @@ class StringConcatNode:
 
     def __repr__(self):
         return f'(StringConcat: {self.string_node} + {self.expr_node})'
+    
+class ListNode:
+    def __init__(self, elementNodes, posStart, posEnd):
+        self.elementNodes = elementNodes
+        self.posStart = posStart
+        self.posEnd = posEnd
+        
+
+
         
 
 #Rezultat parserja
@@ -594,6 +611,11 @@ class Parser:
                 self.advance()
                 return res.success(expr)
             else: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ')'"))
+        elif tok.type == OGLATIOKLEPAJ:
+            listExpr = res.register(self.listExpr())
+            if res.error : return res
+            return res.success(listExpr)
+        
         elif tok.matches(KEYWORD, 'IF'):
             ifExpr = res.register(self.ifExpr())
             if res.error: return res
@@ -614,9 +636,38 @@ class Parser:
             if res.error: return res
             return res.success(funcDef)
 
-        return res.failure(InvalidSyntaxError(tok.posStart, tok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or ')'"))
+        return res.failure(InvalidSyntaxError(tok.posStart, tok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', ')', '[' OR ']'"))
     
 
+    def listExpr(self):
+        res = ParseResult()
+        elementNodes = []
+        posStart = self.currentTok.posStart.copy()
+        
+        if self.currentTok.type != OGLATIOKLEPAJ:
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected '['"))
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type == OGLATIZAKLEPAJ:
+            res.registerAdvancement()
+            self.advance()
+        else:
+            elementNodes.append(res.register(self.expr()))
+            if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or ')'"))
+                
+            while self.currentTok.type == VEJICA:
+                res.registerAdvancement()
+                self.advance()
+
+                elementNodes.append(res.register(self.expr()))
+                if res.error: return res
+
+            if self.currentTok.type != OGLATIZAKLEPAJ:
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected ',' or ']'"))
+            res.registerAdvancement()
+            self.advance()
+        return res.success(ListNode(elementNodes, posStart, self.currentTok.posEnd.copy()))
 
 
     def ifExpr(self):
@@ -1164,6 +1215,55 @@ class String(Value):
     def __repr__(self):
         return f'"{self.value}"'
 
+class List(Value):
+    def __init__(self, elements):
+        super().__init__()
+        self.elements = elements
+    
+    def addedTo(self, other):
+        newList = self.copy()
+        newList.elements.append(other)
+        return newList, None
+    
+    def subtractedBy(self, other):
+        if isinstance(other, Number):
+            newList = self.copy()
+            try:
+                newList.elements.pop(other.value)
+                return newList, None
+            except:
+                return None, RuntimeError(other.posStart, other.posEnd, "Index is out of bounds", self.context)
+        else:
+            return None, Value.illegalOperation(self, other)
+
+    def multiplyBy(self, other):
+        if isinstance(other, List):
+            newList = self.copy()
+            newList.elements.extend(other.elements)
+            return newList, None
+        else:
+            return None, Value.illegalOperation(self, other)
+    
+    def divideBy(self, other):
+        if isinstance(other, Number):
+            try:
+                return self.elements[other.value], None
+            except:
+                return None, RuntimeError(other.posStart, other.posEnd, "Index is out of bounds", self.context)
+        else:
+            return None, Value.illegalOperation(self, other)
+
+    def copy(self):
+        copy = List(self.elements[:])
+        copy.setPos(self.posStart, self.posEnd)
+        copy.setContext(self.context)
+        return copy
+    def __repr__(self):
+        return f'[{", ".join([str(x) for x in self.elements])}]'
+
+
+
+
 #Bolj podrobni error
 class Context:
     def __init__(self, displayName, parent = None, parentEntryPos = None):
@@ -1172,6 +1272,7 @@ class Context:
         self.parentEntryPos = parentEntryPos
         self.symbolTable = None
          
+#Shranjevanje spremenljivk
 class SymbolTable:
     def __init__(self, parent = None):
         self.symbols = {}
@@ -1298,6 +1399,7 @@ class Interpreter:
     
     def visitForNode(self, node, context):
         res = RTResult()
+        elements = []
 
         startValue = res.register(self.visit(node.startValueNode, context))
         if res.error: return res
@@ -1322,13 +1424,14 @@ class Interpreter:
             context.symbolTable.set(node.varNameTok.value, Number(i))
             i += stepValue.value
 
-            res.register(self.visit(node.bodyNode, context))
+            elements.append(res.register(self.visit(node.bodyNode, context)))
             if res.error: return res
 
-        return res.success(None)
+        return res.success(List(elements).setContext(context).setPos(node.posStart, node.posEnd))
 
     def visitWhileNode(self, node, context):
         res = RTResult()
+        elements = []
 
         while True:
             condition = res.register(self.visit(node.conditionNode, context))
@@ -1336,9 +1439,9 @@ class Interpreter:
 
             if not condition.isTrue(): break
 
-            res.register(self.visit(node.bodyNode, context))
+            elements.append(res.register(self.visit(node.bodyNode, context)))
             if res.error: return res
-        return res.success(None)
+        return res.success(List(elements).setContext(context).setPos(node.posStart, node.posEnd))
     
     def visitFuncDefNode(self, node, context):
         res = RTResult()
@@ -1371,13 +1474,22 @@ class Interpreter:
         return res.success(returnvalue)
     def visitStringConcatNode(self, node, context):
         res = RTResult()
-        left = res.register(self.visit(node.string_node, context))  # mora biti String
+        left = res.register(self.visit(node.string_node, context)) 
         if res.error: return res
-        right = res.register(self.visit(node.expr_node, context))   # pričakujemo Number
+        right = res.register(self.visit(node.expr_node, context))  
         if res.error: return res
-        # Pretvorimo številčni rezultat (right.value) v niz in združimo z left.value.
         result = String(left.value + str(right.value)).setContext(context)
         return res.success(result.setPos(node.posStart, node.posEnd))
+    
+    def visitListNode(self, node, context):
+        res = RTResult()
+        elements = []
+
+        for elementNode in node.elementNodes:
+            elements.append(res.register(self.visit(elementNode, context)))
+            if res.error: return res
+
+        return res.success(List(elements).setContext(context).setPos(node.posStart, node.posEnd))
 
 #Run
 globalSymbolTable = SymbolTable()

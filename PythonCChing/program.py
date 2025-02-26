@@ -29,6 +29,7 @@ PLUS = 'PLUS'
 MINUS = 'MINUS'
 KRAT = 'KRAT'
 DEL = 'DEL'
+PROCENT = 'PROCENT'
 POTENCA = 'POTENCA'
 OKLEPAJ = 'OKLEPAJ'
 ZAKLEPAJ = 'ZAKLEPAJ'
@@ -114,6 +115,9 @@ class Lexer:
                 self.advance()
             elif self.currentChar == '*':   
                 tokens.append(Token(KRAT, posStart = self.pos))
+                self.advance()
+            elif self.currentChar == '%':   
+                tokens.append(Token(PROCENT, posStart = self.pos))
                 self.advance()
             elif self.currentChar == '(':
                 tokens.append(Token(OKLEPAJ, posStart = self.pos))
@@ -488,7 +492,7 @@ class Parser:
 
     # factor *|/ factor
     def term(self):
-        return self.binOp(self.factor, (KRAT, DEL))
+        return self.binOp(self.factor, (KRAT, DEL, PROCENT))
 
     # term +|- term
     def expr(self):
@@ -547,7 +551,7 @@ class Parser:
             return res.success(CallNode(atom, argNodes))
         return res.success(atom)
 
-    # STRING PLUS expr
+    
 
     #atom
     def atom(self):
@@ -961,6 +965,11 @@ class Number(Value):
             return Number(self.value ** other.value).setContext(self.context), None
         else: 
             return None, Value.illegalOperation(self, other)
+    def moduloBy(self, other):
+        if isinstance(other, Number):
+            return Number(self.value % other.value).setContext(self.context), None
+        else: 
+            return None, Value.illegalOperation(self, other)
     def getComparisonEqual(self, other):
         if isinstance(other, Number):
             return Number(int(self.value == other.value)).setContext(self.context), None
@@ -1143,6 +1152,8 @@ class Interpreter:
             result, error = left.divideBy(right)
         elif node.opTok.type == POTENCA:
             result, error = left.powerBy(right)
+        elif node.opTok.type == PROCENT:
+            result, error = left.moduloBy(right)
         elif node.opTok.type == DVOJNIENAKO:
             result, error = left.getComparisonEqual(right)
         elif node.opTok.type == NIENAKO:

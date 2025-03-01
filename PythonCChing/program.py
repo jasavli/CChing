@@ -1,9 +1,3 @@
-"""
-Za naprej:
-Nekatere built in metode ne delujejo argName
-"""
-
-
 
 #Importi
 from string_with_arrows import * 
@@ -11,6 +5,7 @@ from string_with_arrows import *
 import string
 import os
 import math
+import random
 
 
 IDENTIFIKATOR = 'IDENTIFIKATOR'
@@ -105,7 +100,6 @@ class Lexer:
                 continue
             elif self.currentChar == '#':
                 self.skipComment()
-                self.advance()
             elif self.currentChar in ';\n':
                 tokens.append(Token(NOVAVRSTICA, posStart = self.pos))
                 self.advance()
@@ -277,11 +271,10 @@ class Lexer:
     
     def skipComment(self):
         self.advance()
-
-        while self.currentChar != "\n":
+        while self.currentChar is not None and self.currentChar != '\n':
             self.advance()
-            
-        self.advance()
+        if self.currentChar == '\n':
+            self.advance()
 
 
 #Razred za napake
@@ -567,6 +560,9 @@ class Parser:
             res.registerAdvancement()
             self.advance()
 
+        if self.currentTok.type == KONEC: 
+            return res.success(ListNode([], posStart, self.currentTok.posEnd.copy()))
+
         statement = res.register(self.statement())
         if res.error: return res
         statements.append(statement)
@@ -583,6 +579,8 @@ class Parser:
                 moreStatements = False
 
             if not moreStatements: break
+
+            if self.currentTok.type == KONEC: break
 
             statement = res.tryRegister(self.statement())
             if not statement:
@@ -1536,6 +1534,38 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Number.null)
     execute_extend.arg_names = ['listA', 'listB']
 
+    def execute_update(self, execCtx):
+        list_ = execCtx.symbolTable.get("list")
+        index = execCtx.symbolTable.get("index")
+        newValue = execCtx.symbolTable.get("value")
+        
+        if not isinstance(list_, List):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "First argument must be a number", execCtx))
+        if not isinstance(index, Number):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Second argument must be a number", execCtx))
+        
+        try:
+            list_.elements[index.value] = newValue
+        except Exception as e:
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Error while updating an element: " + str(e), execCtx))
+        
+        return RTResult().success(Number.null)
+    execute_update.arg_names = ['list', 'index', 'value']
+
+    def execute_random(self, execCtx):
+        startNum = execCtx.symbolTable.get("startNum")
+        endNum = execCtx.symbolTable.get("endNum")
+
+        if not isinstance(startNum, Number):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "First argument must be a number", execCtx))
+        if not isinstance(endNum, Number):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Second argument must be a number", execCtx))
+
+        rNumber = random.randint(startNum.value, endNum.value)
+
+        return RTResult().success(Number(rNumber))
+    execute_random.arg_names = ['startNum', 'endNum']
+
     def execute_len(self, execCtx):
         list_ = execCtx.symbolTable.get("list")
 
@@ -1580,7 +1610,9 @@ BuiltInFunction.isFunction = BuiltInFunction("is_function")
 BuiltInFunction.append = BuiltInFunction("append")
 BuiltInFunction.pop = BuiltInFunction("pop")
 BuiltInFunction.extend = BuiltInFunction("extend")
+BuiltInFunction.update = BuiltInFunction("update")
 BuiltInFunction.len = BuiltInFunction("len")
+BuiltInFunction.random = BuiltInFunction("random")
 BuiltInFunction.run = BuiltInFunction("run")
 
 
@@ -2000,7 +2032,9 @@ globalSymbolTable.set("IS_FUN", BuiltInFunction.isFunction)
 globalSymbolTable.set("APPEND", BuiltInFunction.append)
 globalSymbolTable.set("POP", BuiltInFunction.pop)
 globalSymbolTable.set("EXTEND", BuiltInFunction.extend)
+globalSymbolTable.set("UPDATE", BuiltInFunction.update)
 globalSymbolTable.set("LEN", BuiltInFunction.len)
+globalSymbolTable.set("RANDOM", BuiltInFunction.random)
 globalSymbolTable.set("RUN", BuiltInFunction.run)
 
 

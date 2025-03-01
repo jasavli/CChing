@@ -1,0 +1,9 @@
+FUN main()
+    	VAR st1 = INPUT()
+	VAR st1 = INPUT()	
+
+	FOR i = 0 TO 100 THEN
+	PRINT(RANDOM(st1, st2))
+END
+
+main()

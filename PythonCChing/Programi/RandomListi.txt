@@ -1,0 +1,28 @@
+FUN generate_numbers(n)
+    VAR numbers = []
+    FOR i = 1 TO n THEN
+        VAR num = RANDOM(1, 100)
+        APPEND(numbers, num)
+    END
+    RETURN numbers
+END
+
+FUN average(list)
+    VAR sum = 0
+    FOR i = 0 TO LEN(list) - 1 THEN
+        sum = sum + list[i]
+    END
+    RETURN sum / LEN(list)
+END
+
+FUN main()
+    VAR n = INPUT_INT("Vnesi koliko števil: ")
+    VAR nums = generate_numbers(n)
+    PRINT("Generirana števila:")
+    PRINT(nums)
+    VAR avg = average(nums)
+    PRINT("Povprečje:")
+    PRINT(avg)
+END
+
+main()

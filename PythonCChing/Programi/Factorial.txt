@@ -1,0 +1,14 @@
+FUN fact(a)
+    IF a != 0 THEN
+        RETURN a * fact(a - 1)
+    ELSE
+        RETURN 1
+    END
+END
+
+FUN main()
+    VAR st = INPUT_INT("Vpisi stevilo: ")
+    PRINT(fact(st) + "\n")
+END
+
+main()

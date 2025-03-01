@@ -1,0 +1,16 @@
+FUN main()
+    VAR st = INPUT_INT("Vpisi stevilo: ")
+
+    zvezdice(st)
+END
+
+FUN zvezdice(st)
+    FOR i = 0 TO st + 1 THEN
+        FOR x = 0 TO i THEN
+            PRINT("*")
+        END
+    PRINT("\n")
+    END
+END
+
+main()

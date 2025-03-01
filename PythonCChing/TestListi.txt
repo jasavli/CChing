@@ -1,0 +1,44 @@
+
+FUN main()
+    VAR list = []
+    WHILE TRUE THEN
+        VAR st = INPUT_INT("Vpisi stevilo: ")
+        APPEND(list, st)
+
+        VAR odg = INPUT("Zelis nadaljevati (d/n): ")
+        IF odg == "n" THEN BREAK
+
+    END
+    VAR najvecjeSt = Max(list)
+    VAR sestevek = Sum(list)
+    VAR povprecje = Avg(list)
+    PRINT("Najvecje: " + najvecjeSt + ", sestevek: " + sestevek + ", povprecje: " + povprecje)
+END
+
+FUN Max(list)
+    VAR dolzina = LEN(list)
+    VAR maxSt = list/0
+
+    FOR i = 0 TO dolzina THEN
+        IF list/i > maxSt THEN VAR maxSt = list/i
+    END
+    RETURN maxSt
+END
+
+FUN Sum(list)
+    VAR dolzina = LEN(list)
+    VAR sestevek = 0
+
+    FOR i = 0 TO dolzina THEN
+        VAR sestevek = sestevek + list/i
+    END
+    RETURN sestevek
+END
+
+FUN Avg(list)
+    VAR sestevek = Sum(list)
+    RETURN sestevek / LEN(list)
+END
+
+
+main()

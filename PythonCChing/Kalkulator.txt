@@ -1,0 +1,34 @@
+FUN izracunaj(s1, op, s2)
+    IF op == "+" THEN
+        RETURN s1 + s2
+    ELIF op == "-" THEN
+        RETURN s1 - s2
+    ELIF op == "*" THEN
+        RETURN s1 * s2
+    ELIF op == "/" THEN
+        RETURN s1 / s2
+    ELSE RETURN NULL 
+END
+
+
+WHILE TRUE THEN
+    VAR st1 = INPUT_INT("Vpisi stevilo 1: ")
+    VAR st2 = INPUT_INT("Vpisi stevilo 2: ")
+    VAR op = INPUT("Kateri operator zelite uporabiti? ")
+
+    
+    IF izracunaj(st1, op, st2) == NULL THEN
+	PRINT("Napaka: Operator ni veljaven!") 
+	CONTINUE 
+    ELSE 
+	VAR r = izracunaj(st1, op, st2)
+    END
+
+    PRINT(r)
+    
+    VAR nadaljuj = INPUT("Zelis nadaljevati (d/n): ")
+    IF nadaljuj == "n" THEN BREAK 
+END
+
+
+

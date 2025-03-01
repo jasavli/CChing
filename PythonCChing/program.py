@@ -38,6 +38,7 @@ OGLATIZAKLEPAJ = 'OGLATIZAKLEPAJ'
 KONEC = 'KONEC'
 VEJICA = 'VEJICA'
 PUSCICA = 'PUSCICA'
+NOVAVRSTICA = 'NOVAVRSTICA'
 
 KEYWORDS = [
     'VAR',
@@ -52,7 +53,11 @@ KEYWORDS = [
     'TO',
     'STEP',
     'WHILE',
-    'FUN'
+    'FUN',
+    'END',
+    'RETURN',
+    'CONTINUE',
+    'BREAK'
 ]
 
 #konstante
@@ -95,9 +100,15 @@ class Lexer:
     def makeTokens(self):
         tokens = []
         while self.currentChar != None:
-            if self.currentChar in ' \t\n':
+            if self.currentChar in ' \t':
                 self.advance()
                 continue
+            elif self.currentChar == '#':
+                self.skipComment()
+                self.advance()
+            elif self.currentChar in ';\n':
+                tokens.append(Token(NOVAVRSTICA, posStart = self.pos))
+                self.advance()
             elif self.currentChar in DIGITS:
                 tokens.append(self.makeNumber())
             elif self.currentChar in LETTERS:
@@ -263,6 +274,14 @@ class Lexer:
             self.advance()
             tokType = VECALIENAKO
         return Token(tokType, posStart = posStart, posEnd = self.pos)
+    
+    def skipComment(self):
+        self.advance()
+
+        while self.currentChar != "\n":
+            self.advance()
+            
+        self.advance()
 
 
 #Razred za napake
@@ -390,30 +409,33 @@ class IfNode:
         self.cases = cases
         self.elseCase = elseCase
         self.posStart = self.cases[0][0].posStart
-        self.posEnd = self.elseCase or self.cases[len(self.cases) - 1][0].posEnd
+        self.posEnd = (self.elseCase or self.cases[len(self.cases) - 1])[0].posEnd
 
 class ForNode:
-    def __init__(self, varNameTok, startValueNode, endValueNode, stepValueNode, bodyNode):
+    def __init__(self, varNameTok, startValueNode, endValueNode, stepValueNode, bodyNode, shouldReturnNull):
         self.varNameTok = varNameTok
         self.startValueNode = startValueNode
         self.endValueNode = endValueNode
         self.stepValueNode = stepValueNode
         self.bodyNode = bodyNode
+        self.shouldReturnNull = shouldReturnNull
 
         self.posStart = self.varNameTok.posStart
         self.posEnd = self.bodyNode.posEnd
 class WhileNode:
-    def __init__(self, conditionNode, bodyNode):
+    def __init__(self, conditionNode, bodyNode, shouldReturnNull):
         self.conditionNode = conditionNode
         self.bodyNode = bodyNode
+        self.shouldReturnNull = shouldReturnNull
 
         self.posStart = self.conditionNode.posStart
         self.posEnd = self.bodyNode.posEnd 
 class FuncDefNode:
-    def __init__(self, varNameTok, argNameToks, bodyNode):
+    def __init__(self, varNameTok, argNameToks, bodyNode, shouldAutoReturn):
         self.varNameTok = varNameTok
         self.argNameToks = argNameToks
         self.bodyNode = bodyNode
+        self.shouldAutoReturn = shouldAutoReturn
 
         if self.varNameTok:
             self.posStart = self.varNameTok.posStart
@@ -449,6 +471,22 @@ class ListNode:
         self.elementNodes = elementNodes
         self.posStart = posStart
         self.posEnd = posEnd
+
+class ReturnNode:
+    def __init__(self, nodeToReturn, posStart, posEnd):
+        self.nodeToReturn = nodeToReturn
+        self.posStart = posStart
+        self.posEnd = posEnd
+
+class ContinueNode:
+    def __init__(self, posStart, posEnd):
+        self.posStart = posStart
+        self.posEnd = posEnd
+
+class BreakNode:
+    def __init__(self, posStart, posEnd):
+        self.posStart = posStart
+        self.posEnd = posEnd
         
 
 
@@ -460,6 +498,7 @@ class ParseResult:
         self.error = None
         self.node = None
         self.advanceCount = 0
+        self.toReverseCount = 0
 
     def register(self, res):
         self.advanceCount += res.advanceCount
@@ -479,6 +518,12 @@ class ParseResult:
             self.error = error
         return self
     
+    def tryRegister(self, res):
+        if res.error:
+            self.toReverseCount = res.advanceCount
+            return None
+        return self.register(res)
+
 
 #Parser
 class Parser:
@@ -493,14 +538,88 @@ class Parser:
             self.currentTok = self.tokens[self.tokInd]
         return self.currentTok
     
+    def reverse(self, amount = 1):
+        self.tokInd -= amount
+        self.updateCurrentTok()
+        return self.currentTok
+
+    def updateCurrentTok(self):
+        if self.tokInd >= 0 and self.tokInd < len(self.tokens):
+            self.currentTok = self.tokens[self.tokInd]
+
+
+    
     def parse(self):
-        res = self.expr()
+        res = self.statements()
         if not res.error and self.currentTok.type != KONEC: 
             return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected '+', '-', '*' or '/'"))
         return res
 
     def power(self):
         return self.binOp(self.call, (POTENCA,), self.factor)
+
+    def statements(self):
+        res = ParseResult()
+        statements = []
+        posStart = self.currentTok.posStart.copy()
+
+        while self.currentTok.type == NOVAVRSTICA:
+            res.registerAdvancement()
+            self.advance()
+
+        statement = res.register(self.statement())
+        if res.error: return res
+        statements.append(statement)
+
+        moreStatements = True 
+
+        while True:
+            newLineCount = 0
+            while self.currentTok.type == NOVAVRSTICA:
+                res.registerAdvancement()
+                self.advance()
+                newLineCount += 1
+            if newLineCount == 0:
+                moreStatements = False
+
+            if not moreStatements: break
+
+            statement = res.tryRegister(self.statement())
+            if not statement:
+                self.reverse(res.toReverseCount)
+                moreStatements = False
+                continue
+            statements.append(statement)
+        return res.success(ListNode(statements, posStart, self.currentTok.posEnd.copy()))
+
+    def statement(self):
+        res = ParseResult()     
+        posStart = self.currentTok.posStart.copy()
+            
+        if self.currentTok.matches(KEYWORD, "RETURN"):
+            res.registerAdvancement()
+            self.advance()
+
+            expr = res.tryRegister(self.expr())
+            if not expr:
+                self.reverse(res.toReverseCount)
+            return res.success(ReturnNode(expr, posStart, self.currentTok.posStart.copy()))
+        
+        if self.currentTok.matches(KEYWORD, "CONTINUE"):
+            res.registerAdvancement()
+            self.advance()
+            return res.success(ContinueNode(posStart, self.currentTok.posStart.copy()))
+        
+        if self.currentTok.matches(KEYWORD, "BREAK"):
+            res.registerAdvancement()
+            self.advance()
+            return res.success(BreakNode(posStart, self.currentTok.posStart.copy()))
+        
+        expr = res.register(self.expr())
+        if res.error: return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'CONTINUE', 'RETURN', 'BREAK', int, float, identifier, '+', '-', or '('"))
+
+        return res.success(expr)
+
 
     #enota
     def factor(self):
@@ -670,13 +789,67 @@ class Parser:
             self.advance()
         return res.success(ListNode(elementNodes, posStart, self.currentTok.posEnd.copy()))
 
-
     def ifExpr(self):
+        res = ParseResult()
+        allCases = res.register(self.ifExprCases("IF"))
+        if res.error: return res
+        cases, elseCase = allCases
+        return res.success(IfNode(cases, elseCase))
+    
+    def ifExprB(self):
+        return self.ifExprCases("ELIF")
+    
+    def ifExprC(self):
+        res = ParseResult()
+        elseCase = None
+
+        if self.currentTok.matches(KEYWORD, "ELSE"):
+            res.registerAdvancement()
+            self.advance()
+
+            if self.currentTok.type == NOVAVRSTICA:
+                res.registerAdvancement()
+                self.advance()
+
+                statements = res.register(self.statements())
+                if res.error: return res
+                elseCase = (statements, True)
+
+                if self.currentTok.matches(KEYWORD, "END"):
+                    res.registerAdvancement()
+                    self.advance()
+                else:
+                    return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'END'"))
+            else:
+                expr = res.register(self.statement())
+                if res.error: return res
+                elseCase = (expr, False)
+        return res.success(elseCase)
+    
+    def ifExprBorC(self):
+        res = ParseResult()
+        cases, elseCase = [], None
+
+        if self.currentTok.matches(KEYWORD, "ELIF"):
+            allCases = res.register(self.ifExprB())
+            if res.error: return res
+            cases, elseCase = allCases
+        else:
+            elseCase = res.register(self.ifExprC())
+            if res.error: return res
+        return res.success((cases, elseCase))
+
+
+    def ifExprCases(self, case_keyword):
         res = ParseResult()
         cases = []
         elseCase = None
-        if not self.currentTok.matches(KEYWORD, 'IF'):
-            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'IF'"))
+
+        if not self.currentTok.matches(KEYWORD, case_keyword):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"Expected '{case_keyword}'"
+            ))
         res.registerAdvancement()
         self.advance()
 
@@ -684,41 +857,32 @@ class Parser:
         if res.error: return res
 
         if not self.currentTok.matches(KEYWORD, 'THEN'):
-            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                "Expected 'THEN'"
+            ))
         res.registerAdvancement()
         self.advance()
 
-        expr = res.register(self.expr())
-        if res.error: return res
-        cases.append((condition, expr))
+        if self.currentTok.type == NOVAVRSTICA:
+            res.registerAdvancement()
+            self.advance()
+            statements = res.register(self.statements())
+            if res.error: return res
+            cases.append((condition, statements, True))
+        else:
+            expr = res.register(self.statement())
+            if res.error: return res
+            cases.append((condition, expr, False))
 
+        if self.currentTok.matches(KEYWORD, 'ELIF') or self.currentTok.matches(KEYWORD, 'ELSE'):
+            allCases = res.register(self.ifExprBorC())
+            if res.error: return res
+            newCases, elseCase = allCases
+            cases.extend(newCases)
+
+        return res.success((cases, elseCase))
         
-
-        while self.currentTok.matches(KEYWORD, 'ELIF'):
-            res.registerAdvancement()
-            self.advance()
-
-            condition = res.register(self.expr())
-            if res.error: return res
-
-            if not self.currentTok.matches(KEYWORD, 'THEN'):
-                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
-            
-            res.registerAdvancement()
-            self.advance()
-
-            expr = res.register(self.expr())
-            if res.error: return res
-            cases.append((condition, expr))
-
-        if self.currentTok.matches(KEYWORD, 'ELSE'):
-            res.registerAdvancement()
-            self.advance()
-
-            elseCase = res.register(self.expr())
-            if res.error: return res
-
-        return res.success(IfNode(cases, elseCase))
 
     def forExpr(self):
         res = ParseResult()
@@ -766,9 +930,25 @@ class Parser:
         res.registerAdvancement()
         self.advance()
 
-        body = res.register(self.expr())
+        if self.currentTok.type == NOVAVRSTICA:
+            res.registerAdvancement()
+            self.advance()
+
+            body = res.register(self.statements())
+            if res.error: return res
+
+            if not self.currentTok.matches(KEYWORD, "END"):
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'END'"))
+            res.registerAdvancement()
+            self.advance()
+
+            return res.success(ForNode(varName, startValue, endValue, stepValue, body, True))
+            
+
+
+        body = res.register(self.statement())
         if res.error: return res
-        return res.success(ForNode(varName, startValue, endValue, stepValue, body))
+        return res.success(ForNode(varName, startValue, endValue, stepValue, body, False))
     
     def whileExpr(self):
         res = ParseResult()
@@ -787,14 +967,26 @@ class Parser:
         res.registerAdvancement()
         self.advance()
 
-        body = res.register(self.expr())
+        if self.currentTok.type == NOVAVRSTICA:
+            res.registerAdvancement()
+            self.advance()
+
+            body = res.register(self.statements())
+            if res.error: return res
+
+            if not self.currentTok.matches(KEYWORD, "END"):
+                return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, "Expected 'END'"))
+            res.registerAdvancement()
+            self.advance()
+
+            return res.success(WhileNode(condition, body, True))
+
+
+
+        body = res.register(self.statement())
         if res.error: return res
 
-        return res.success(WhileNode(condition, body))
-
-    
-
-
+        return res.success(WhileNode(condition, body, False))
 
 
 
@@ -845,14 +1037,28 @@ class Parser:
         res.registerAdvancement()
         self.advance()
 
-        if self.currentTok.type != PUSCICA:
-            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected '->'"))
+        if self.currentTok.type == PUSCICA:
+            res.registerAdvancement()
+            self.advance()
+            body = res.register(self.expr())
+            if res.error: return res
+
+            return res.success(FuncDefNode(varNameTok, argNameToks, body, True))
+        
+        if self.currentTok.type != NOVAVRSTICA:
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected '->' 'NEWLINE'"))
         res.registerAdvancement()
         self.advance()
-        nodeToReturn = res.register(self.expr())
+
+        body = res.register(self.statements())
         if res.error: return res
 
-        return res.success(FuncDefNode(varNameTok, argNameToks, nodeToReturn))
+        if not self.currentTok.matches(KEYWORD, "END"):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'END'"))
+        res.registerAdvancement()
+        self.advance()
+
+        return res.success(FuncDefNode(varNameTok, argNameToks, body, False))
 
 
 
@@ -898,20 +1104,50 @@ class Parser:
 #runtime rezultat
 class RTResult:
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         self.value = None
         self.error = None
+        self.funcReturnValue = None
+        self.loopShouldContinue = False
+        self.loopShouldBreak = False
 
     def register(self, res):
-        if res.error: self.error = res.error
+        self.error = res.error
+        self.funcReturnValue = res.funcReturnValue
+        self.loopShouldContinue = res.loopShouldContinue
+        self.loopShouldBreak = res.loopShouldBreak
         return res.value
     
     def success(self, value):
+        self.reset()
         self.value = value
         return self
     
+    def successReturn(self, value):
+        self.reset()
+        self.funcReturnValue = value
+        return self
+    
+    def successBreak(self):
+        self.reset()
+        self.loopShouldBreak = True
+        return self
+    
+    def successContinue(self):
+        self.reset()
+        self.loopShouldContinue = True
+        return self
+
+    
     def failure(self, error):
+        self.reset()
         self.error = error
         return self
+    
+    def shouldReturn(self):
+        return(self.error or self.funcReturnValue or self.loopShouldContinue or self.loopShouldBreak)
 
 
 #vrednosti
@@ -1124,7 +1360,7 @@ class BaseFunction(Value):
         if len(args) > len(argNames):
             return res.failure(RuntimeError(self.posStart, self.posEnd, f"{len(args) - len(argNames)} too many argy passed into '{self.name}'", self.context))
         if len(args) < len(argNames):
-            return res.failure(RuntimeError(self.posStart, self.posEnd, f"{len(argNames) - len(self.args)} too few argy passed into '{self.name}'", self.context))
+            return res.failure(RuntimeError(self.posStart, self.posEnd, f"{len(argNames) - len(args)} too few argy passed into '{self.name}'", self.context))
         
         return res.success(None)
     
@@ -1139,36 +1375,37 @@ class BaseFunction(Value):
         res = RTResult()
 
         res.register(self.checkArgs(argNames, args))
-        if res.error: return res
+        if res.shouldReturn(): return res
 
         self.populateArgs(argNames, args, execCtx)
         return res.success(None)
 
 
-
-
-
     
 class Function(BaseFunction):
-    def __init__(self, name, bodyNode, argNames):
+    def __init__(self, name, bodyNode, argNames, shouldAutoReturn):
         super().__init__(name)
         self.bodyNode = bodyNode
         self.argNames = argNames
+        self.shouldAutoReturn = shouldAutoReturn
+
     def execute(self, args):
         res = RTResult()
 
         interpreter = Interpreter()
         execCtx = self.generateNewContext()
 
-        res.register(self.checkAndPopulateArgs(self.argNames, self.args, execCtx))
-        if res.error: return res
+        res.register(self.checkAndPopulateArgs(self.argNames, args, execCtx))
+        if res.shouldReturn(): return res
 
         value = res.register(interpreter.visit(self.bodyNode, execCtx))
-        if res.error: return res
-        return res.success(value)
+        if res.shouldReturn() and res.funcReturnValue == None: return res
+
+        retValue = (value if self.shouldAutoReturn else None) or res.funcReturnValue or Number.null
+        return res.success(retValue)
     
     def copy(self):
-        copy = Function(self.name, self.bodyNode, self.argNames)
+        copy = Function(self.name, self.bodyNode, self.argNames, self.shouldAutoReturn)
         copy.setContext(self.context)
         copy.setPos(self.posStart, self.posEnd)
         return copy
@@ -1186,11 +1423,11 @@ class BuiltInFunction(BaseFunction):
         methodName = f'execute_{self.name}'
         method = getattr(self, methodName, self.noVisitMethod)
 
-        res.register(self.checkAndPopulateArgs(method.argNames, args, execCtx))
-        if res.error: return res 
+        res.register(self.checkAndPopulateArgs(method.arg_names, args, execCtx))
+        if res.shouldReturn(): return res 
 
         returnValue = res.register(method(execCtx))
-        if res.error: return res
+        if res.shouldReturn(): return res
         return res.success(returnValue)
 
 
@@ -1209,20 +1446,22 @@ class BuiltInFunction(BaseFunction):
 #vgrajene funkcije
 
     def execute_print(self, execCtx):
-        print(str(execCtx.symbolTable.get('value')))
+        print(str(execCtx.symbolTable.get('value')), end="")
         return RTResult().success(Number.null)
-    execute_print.argNames = ['value']
+    execute_print.arg_names = ['value']
 
     def execute_print_ret(self, execCtx):
         return RTResult().success(String(str(execCtx.symbolTable.get('value'))))
-    execute_print_ret.argNames = ['value']
+    execute_print_ret.arg_names = ['value']
 
     def execute_input(self, execCtx):
+        print(str(execCtx.symbolTable.get('value')))
         text = input()
         return RTResult().success(String(text))
-    execute_input.argNames = []
+    execute_input.arg_names = ['value']
 
     def execute_input_int(self, execCtx):
+        print(str(execCtx.symbolTable.get('value')))
         while True:
             text = input()
             try:
@@ -1230,33 +1469,33 @@ class BuiltInFunction(BaseFunction):
                 break
             except ValueError:
                 print(f"'{text}' must be an integer. Try again!")
-            return RTResult().success(Number(number))
-    execute_input_int.argNames = []
+        return RTResult().success(Number(number))
+    execute_input_int.arg_names = ['value']
 
     def execute_clear(self, execCtx):
         os.system('cls' if os.name == 'nt' else 'clear')
         return RTResult().success(Number.null)
-    execute_clear.argNames = []
+    execute_clear.arg_names = []
 
     def execute_is_number(self, execCtx):
         isNumber = isinstance(execCtx.symbolTable.get("value"), Number)
         return RTResult().success(Number.true if isNumber else Number.false)
-    execute_is_number.argNames = ['value']
+    execute_is_number.arg_names = ['value']
 
     def execute_is_string(self, execCtx):
         isNumber = isinstance(execCtx.symbolTable.get("value"), String)
         return RTResult().success(Number.true if isNumber else Number.false)
-    execute_is_string.argNames = ['value']
+    execute_is_string.arg_names = ['value']
 
     def execute_is_list(self, execCtx):
         isNumber = isinstance(execCtx.symbolTable.get("value"), List)
         return RTResult().success(Number.true if isNumber else Number.false)
-    execute_is_list.argNames = ['value']
+    execute_is_list.arg_names = ['value']
 
     def execute_is_function(self, execCtx):
         isNumber = isinstance(execCtx.symbolTable.get("value"), BaseFunction)
         return RTResult().success(Number.true if isNumber else Number.false)
-    execute_is_function.argNames = ['value']
+    execute_is_function.arg_names = ['value']
 
     def execute_append(self, execCtx):
         list_ = execCtx.symbolTable.get("list")
@@ -1267,7 +1506,7 @@ class BuiltInFunction(BaseFunction):
         
         list_.elements.append(value)
         return RTResult().success(Number.null)
-    execute_append.argNames = ['list', 'value']
+    execute_append.arg_names = ['list', 'value']
 
     def execute_pop(self, execCtx):
         list_ = execCtx.symbolTable.get("list")
@@ -1282,7 +1521,7 @@ class BuiltInFunction(BaseFunction):
         except:
             return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Index is out of bounds", execCtx))
         return RTResult().success(element)
-    execute_pop.argNames = ['list', 'index']
+    execute_pop.arg_names = ['list', 'index']
 
     def execute_extend(self, execCtx):
         listA = execCtx.symbolTable.get("listA")
@@ -1295,21 +1534,54 @@ class BuiltInFunction(BaseFunction):
         
         listA.elements.extend(listB.elements)
         return RTResult().success(Number.null)
+    execute_extend.arg_names = ['listA', 'listB']
+
+    def execute_len(self, execCtx):
+        list_ = execCtx.symbolTable.get("list")
+
+        if not isinstance(list_, List):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Argument must be a list", execCtx))
         
-    execute_extend.argNames = ['listA', 'listB']
+        return RTResult().success(Number(len(list_.elements)))
+
+    execute_len.arg_names = ['list']
+
+    def execute_run(self, execCtx):
+        fileName = execCtx.symbolTable.get("fileName")
+
+        if not isinstance(fileName, String):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Argument must be a string", execCtx))
+        
+        fileName = fileName.value
+
+        try: 
+            with open(fileName, "r", encoding="utf-8") as f:
+                script = f.read() 
+        except Exception as e:
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, f"Failed to load script \"{fileName}\"\n" + str(e), execCtx))
+        
+        _, error = run(fileName, script)
+        if error:
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, f"Failed to finish executing script \"{fileName}\"\n" + error.as_string(), execCtx))
+
+        return RTResult().success(Number.null)
+    execute_run.arg_names = ['fileName']
+
 
 BuiltInFunction.print = BuiltInFunction("print")
-BuiltInFunction.printRet = BuiltInFunction("printRet")
+BuiltInFunction.printRet = BuiltInFunction("print_ret")
 BuiltInFunction.input = BuiltInFunction("input")
-BuiltInFunction.inputInt = BuiltInFunction("inputInt")
+BuiltInFunction.inputInt = BuiltInFunction("input_int")
 BuiltInFunction.clear = BuiltInFunction("clear")
-BuiltInFunction.isNumber = BuiltInFunction("isNumber")
-BuiltInFunction.isString = BuiltInFunction("isString")
-BuiltInFunction.isList = BuiltInFunction("isList")
-BuiltInFunction.isFunction = BuiltInFunction("isFunction")
+BuiltInFunction.isNumber = BuiltInFunction("is_number")
+BuiltInFunction.isString = BuiltInFunction("is_string")
+BuiltInFunction.isList = BuiltInFunction("is_list")
+BuiltInFunction.isFunction = BuiltInFunction("is_function")
 BuiltInFunction.append = BuiltInFunction("append")
 BuiltInFunction.pop = BuiltInFunction("pop")
 BuiltInFunction.extend = BuiltInFunction("extend")
+BuiltInFunction.len = BuiltInFunction("len")
+BuiltInFunction.run = BuiltInFunction("run")
 
 
 
@@ -1376,7 +1648,8 @@ class String(Value):
         else: 
             return None, Value.illegalOperation(self, other)
 
-
+    def __str__(self):
+        return self.value
 
     def is_true(self):
         return len(self.value) > 0
@@ -1433,8 +1706,12 @@ class List(Value):
         copy.setPos(self.posStart, self.posEnd)
         copy.setContext(self.context)
         return copy
+        
     def __repr__(self):
         return f'[{", ".join([str(x) for x in self.elements])}]'
+    
+    def __str__(self):
+        return ", ".join([str(x) for x in self.elements])
 
 
 
@@ -1486,7 +1763,7 @@ class Interpreter:
     def visitBinOpNode(self, node, context):  
         res = RTResult()
         left = res.register(self.visit(node.lNode, context))
-        if res.error: return res
+        if res.shouldReturn(): return res
         right = res.register(self.visit(node.rNode, context))
 
         if node.opTok.type == PLUS:
@@ -1524,7 +1801,7 @@ class Interpreter:
     def visitUnaryOpNode(self, node, context):
         res = RTResult()
         number = res.register(self.visit(node.node, context))
-        if res.error: return res
+        if res.shouldReturn(): return res
 
         error = None
         if node.opTok.type == MINUS: 
@@ -1541,7 +1818,7 @@ class Interpreter:
         value = context.symbolTable.get(varName)
 
         if not value:
-            return res.failure(RuntimeError(node.posStart, node.posEnd, f"'{varName}' is not defined"))
+            return res.failure(RuntimeError(node.posStart, node.posEnd, f"'{varName}' is not defined", context))
 
         value = value.copy().setPos(node.posStart, node.posEnd).setContext(context)
         return res.success(value)
@@ -1550,7 +1827,7 @@ class Interpreter:
         res = RTResult()
         varName = node.varNameTok.value
         value = res.register(self.visit(node.valueNode, context))
-        if res.error: return res
+        if res.shouldReturn(): return res
 
         context.symbolTable.set(varName, value)
         return res.success(value)
@@ -1558,33 +1835,34 @@ class Interpreter:
     def visitIfNode(self, node, context):
         res = RTResult()
 
-        for condition, expr in node.cases:
+        for condition, expr, shouldReturnNull in node.cases:
             conditionValue = res.register(self.visit(condition, context))
-            if res.error: return res
+            if res.shouldReturn(): return res
             
             if conditionValue.isTrue():
                 exprValue = res.register(self.visit(expr, context))
-                if res.error: return res
-                return res.success(exprValue)
+                if res.shouldReturn(): return res
+                return res.success(Number.null if shouldReturnNull else exprValue)
         if node.elseCase:
-            elseValue = res.register(self.visit(node.elseCase, context))
-            if res.error: return res
-            return res.success(elseValue)
-        return res.success(None)
+            expr, shouldReturnNull = node.elseCase
+            elseValue = res.register(self.visit(expr, context))
+            if res.shouldReturn(): return res
+            return res.success(Number.null if shouldReturnNull else elseValue)
+        return res.success(Number.null)
     
     def visitForNode(self, node, context):
         res = RTResult()
         elements = []
 
         startValue = res.register(self.visit(node.startValueNode, context))
-        if res.error: return res
+        if res.shouldReturn(): return res
 
         endValue = res.register(self.visit(node.endValueNode, context))
-        if res.error: return res
+        if res.shouldReturn(): return res
 
         if node.stepValueNode:
             stepValue = res.register(self.visit(node.stepValueNode, context))
-            if res.error: return res
+            if res.shouldReturn(): return res
         else:
             stepValue = Number(1)
         
@@ -1599,10 +1877,18 @@ class Interpreter:
             context.symbolTable.set(node.varNameTok.value, Number(i))
             i += stepValue.value
 
-            elements.append(res.register(self.visit(node.bodyNode, context)))
-            if res.error: return res
+            value = res.register(self.visit(node.bodyNode, context))
+            if res.shouldReturn() and res.loopShouldContinue == False and res.loopShouldBreak == False: return res
 
-        return res.success(List(elements).setContext(context).setPos(node.posStart, node.posEnd))
+            if res.loopShouldContinue: 
+                continue
+
+            if res.loopShouldBreak: 
+                break
+
+            elements.append(value)
+
+        return res.success(Number.null if node.shouldReturnNull else List(elements).setContext(context).setPos(node.posStart, node.posEnd))
 
     def visitWhileNode(self, node, context):
         res = RTResult()
@@ -1610,13 +1896,23 @@ class Interpreter:
 
         while True:
             condition = res.register(self.visit(node.conditionNode, context))
-            if res.error: return res
+            if res.shouldReturn(): return res
 
             if not condition.isTrue(): break
 
-            elements.append(res.register(self.visit(node.bodyNode, context)))
-            if res.error: return res
-        return res.success(List(elements).setContext(context).setPos(node.posStart, node.posEnd))
+            value = res.register(self.visit(node.bodyNode, context))
+            if res.shouldReturn() and res.loopShouldContinue == False and res.loopShouldBreak == False: return res
+
+            if res.loopShouldContinue: 
+                continue
+
+            if res.loopShouldBreak: 
+                break
+
+            elements.append(value)
+
+
+        return res.success(Number.null if node.shouldReturnNull else List(elements).setContext(context).setPos(node.posStart, node.posEnd))
     
     def visitFuncDefNode(self, node, context):
         res = RTResult()
@@ -1624,7 +1920,7 @@ class Interpreter:
         funcName = node.varNameTok.value if node.varNameTok else None
         bodyNode = node.bodyNode
         argNames = [argName.value for argName in node.argNameToks]
-        funcValue = Function(funcName, bodyNode, argNames).setContext(context).setPos(node.posStart, node.posEnd)
+        funcValue = Function(funcName, bodyNode, argNames, node.shouldAutoReturn).setContext(context).setPos(node.posStart, node.posEnd)
 
         if node.varNameTok:
             context.symbolTable.set(funcName, funcValue)
@@ -1636,15 +1932,15 @@ class Interpreter:
         args = []
 
         valueToCall = res.register(self.visit(node.nodeToCall, context))
-        if res.error: return res
+        if res.shouldReturn(): return res
         valueToCall = valueToCall.copy().setPos(node.posStart, node.posEnd)
 
         for argNode in node.argNodes:
             args.append(res.register(self.visit(argNode, context)))
-            if res.error: return res
+            if res.shouldReturn(): return res
 
         returnValue = res.register(valueToCall.execute(args))
-        if res.error: return res
+        if res.shouldReturn(): return res
 
         returnValue = returnValue.copy().setPos(node.posStart, node.posEnd).setContext(context)
         return res.success(returnValue)
@@ -1652,9 +1948,9 @@ class Interpreter:
     def visitStringConcatNode(self, node, context):
         res = RTResult()
         left = res.register(self.visit(node.string_node, context)) 
-        if res.error: return res
+        if res.shouldReturn(): return res
         right = res.register(self.visit(node.expr_node, context))  
-        if res.error: return res
+        if res.shouldReturn(): return res
         result = String(left.value + str(right.value)).setContext(context)
         return res.success(result.setPos(node.posStart, node.posEnd))
     
@@ -1664,9 +1960,27 @@ class Interpreter:
 
         for elementNode in node.elementNodes:
             elements.append(res.register(self.visit(elementNode, context)))
-            if res.error: return res
+            if res.shouldReturn(): return res
 
         return res.success(List(elements).setContext(context).setPos(node.posStart, node.posEnd))
+    
+    def visitReturnNode(self, node, context):
+        res = RTResult()
+
+        if node.nodeToReturn:
+            value = res.register(self.visit(node.nodeToReturn, context))
+            if res.shouldReturn(): return res
+        else:
+            value = Number.null
+
+        return res.successReturn(value)
+    
+    def visitContinueNode(self, node, context):
+        return RTResult().successContinue()
+    
+    def visitBreakNode(self, node, context):
+        return RTResult().successBreak()
+
 
 #Run
 globalSymbolTable = SymbolTable()
@@ -1686,7 +2000,8 @@ globalSymbolTable.set("IS_FUN", BuiltInFunction.isFunction)
 globalSymbolTable.set("APPEND", BuiltInFunction.append)
 globalSymbolTable.set("POP", BuiltInFunction.pop)
 globalSymbolTable.set("EXTEND", BuiltInFunction.extend)
-
+globalSymbolTable.set("LEN", BuiltInFunction.len)
+globalSymbolTable.set("RUN", BuiltInFunction.run)
 
 
 

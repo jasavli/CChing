@@ -1,11 +1,11 @@
-FUN main()
-    VAR st = INPUT_INT("Vpisi stevilo: ")
+# RUN("C:\\CChing\\PythonCChing\\Programi\\Zvezdice.txt")
 
-    zvezdice(st)
+FUN main()
+    zvezdice(50)
 END
 
 FUN zvezdice(st)
-    FOR i = 0 TO st + 1 THEN
+    FOR i = 0 TO st THEN
         FOR x = 0 TO i THEN
             PRINT("*")
         END

@@ -1,0 +1,24 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\TimeEfficiencyTests.txt")
+
+FUN sortList(lst)
+    VAR n = LEN(lst)           
+    FOR i = 0 TO n THEN
+        FOR j = 0 TO n - i THEN
+            IF lst / j > lst / (j+1) THEN
+                VAR temp = lst / j
+                UPDATE(lst, j, lst/(j+1))
+                UPDATE(lst, j+1, temp)
+            END
+        END
+    END
+    RETURN lst
+END
+
+
+FUN main()
+    VAR list = [3, 5, 7, 8, 1, 9, 2, 4, 6]
+    VAR x  = sortList(list)
+    PRINT(x)
+END
+
+main()

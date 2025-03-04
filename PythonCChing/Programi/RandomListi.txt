@@ -1,28 +1,31 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\RandomListi.txt")
+
+
 FUN generate_numbers(n)
     VAR numbers = []
-    FOR i = 1 TO n THEN
+    FOR i = 0 TO n THEN
         VAR num = RANDOM(1, 100)
         APPEND(numbers, num)
     END
     RETURN numbers
 END
 
-FUN average(list)
-    VAR sum = 0
-    FOR i = 0 TO LEN(list) - 1 THEN
-        sum = sum + list[i]
+
+
+FUN printReverse(list)
+    FOR i = LEN(list) - 1 TO -1 STEP -1 THEN
+        PRINT(list / i + " ")
     END
-    RETURN sum / LEN(list)
+    PRINT("\n")
 END
 
 FUN main()
     VAR n = INPUT_INT("Vnesi koliko števil: ")
     VAR nums = generate_numbers(n)
-    PRINT("Generirana števila:")
-    PRINT(nums)
-    VAR avg = average(nums)
-    PRINT("Povprečje:")
-    PRINT(avg)
+
+    PRINT(LEN(nums))
+    PRINT("\n ----------- \n")
+    printReverse(nums)
 END
 
 main()

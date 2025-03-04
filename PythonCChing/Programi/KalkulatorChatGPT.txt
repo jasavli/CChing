@@ -1,0 +1,28 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\kalkulatorChatGPT.txt")
+
+
+FUN kalkulator(stevilo1, stevilo2, operacija)
+    IF operacija == "+" THEN
+        RETURN stevilo1 + stevilo2
+    ELIF operacija == "-" THEN
+        RETURN stevilo1 - stevilo2
+    ELIF operacija == "*" THEN
+        RETURN stevilo1 * stevilo2
+    ELIF operacija == "/" THEN
+        IF stevilo2 != 0 THEN
+            RETURN stevilo1 / stevilo2
+        ELSE
+            RETURN "Napaka: Deljenje z 0"
+        END
+    ELSE
+        RETURN "Neveljavna operacija"
+    END
+END
+
+VAR a = INPUT_INT("Vpiši prvo število:")
+VAR op = INPUT("Vpiši operator (+, -, *, /):")
+VAR b = INPUT_INT("Vpiši drugo število:")
+
+VAR rezultat = kalkulator(a, b, op)
+PRINT("Rezultat: ")
+PRINT(rezultat + "\n")

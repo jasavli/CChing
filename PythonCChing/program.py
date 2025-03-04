@@ -100,6 +100,8 @@ class Lexer:
                 continue
             elif self.currentChar == '#':
                 self.skipComment()
+            elif self.currentChar == '&':
+                self.skipComments()
             elif self.currentChar in ';\n':
                 tokens.append(Token(NOVAVRSTICA, posStart = self.pos))
                 self.advance()
@@ -275,6 +277,14 @@ class Lexer:
             self.advance()
         if self.currentChar == '\n':
             self.advance()
+
+    def skipComments(self):
+        self.advance()
+        while self.currentChar is not None and self.currentChar != "&":
+            self.advance()
+        if self.currentChar == '&':
+            self.advance()
+
 
 
 #Razred za napake
@@ -619,7 +629,7 @@ class Parser:
         return res.success(expr)
 
 
-    #enota
+
     def factor(self):
         res = ParseResult()
         tok = self.currentTok
@@ -633,11 +643,11 @@ class Parser:
         
         return self.power()
 
-    # factor *|/ factor
+
     def term(self):
         return self.binOp(self.factor, (KRAT, DEL, PROCENT))
 
-    # term +|- term
+
     def expr(self):
         res = ParseResult()
         if self.currentTok.matches(KEYWORD, 'VAR'):
@@ -838,16 +848,14 @@ class Parser:
         return res.success((cases, elseCase))
 
 
-    def ifExprCases(self, case_keyword):
+    def ifExprCases(self, caseKeyword):
         res = ParseResult()
         cases = []
         elseCase = None
 
-        if not self.currentTok.matches(KEYWORD, case_keyword):
-            return res.failure(InvalidSyntaxError(
-                self.currentTok.posStart, self.currentTok.posEnd,
-                f"Expected '{case_keyword}'"
-            ))
+        if not self.currentTok.matches(KEYWORD, caseKeyword):
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected '{caseKeyword}'"))
+        
         res.registerAdvancement()
         self.advance()
 
@@ -855,31 +863,40 @@ class Parser:
         if res.error: return res
 
         if not self.currentTok.matches(KEYWORD, 'THEN'):
-            return res.failure(InvalidSyntaxError(
-                self.currentTok.posStart, self.currentTok.posEnd,
-                "Expected 'THEN'"
-            ))
+            return res.failure(InvalidSyntaxError(self.currentTok.posStart, self.currentTok.posEnd, f"Expected 'THEN'"))
+
+
         res.registerAdvancement()
         self.advance()
 
         if self.currentTok.type == NOVAVRSTICA:
             res.registerAdvancement()
             self.advance()
+
             statements = res.register(self.statements())
             if res.error: return res
             cases.append((condition, statements, True))
+
+            if self.currentTok.matches(KEYWORD, 'END'):
+                res.registerAdvancement()
+                self.advance()
+            else:
+                allCases = res.register(self.ifExprBorC())
+                if res.error: return res
+                newCases, elseCase = allCases
+                cases.extend(newCases)
         else:
             expr = res.register(self.statement())
             if res.error: return res
             cases.append((condition, expr, False))
 
-        if self.currentTok.matches(KEYWORD, 'ELIF') or self.currentTok.matches(KEYWORD, 'ELSE'):
             allCases = res.register(self.ifExprBorC())
             if res.error: return res
             newCases, elseCase = allCases
             cases.extend(newCases)
 
         return res.success((cases, elseCase))
+
         
 
     def forExpr(self):
@@ -1242,16 +1259,13 @@ class Number(Value):
         if isinstance(other, Number):
             return Number(self.value + other.value).setContext(self.context), None
         elif isinstance(other, String):
-            # Če je drugi operand (niz) v celoti številski, seštejemo številke…
             try:
                 otherNumeric = float(other.value)
                 result = self.value + otherNumeric
                 if result.is_integer():
                     result = int(result)
-                # Vrni številko (lahko bi jo tudi pretvorili v niz, odvisno od želene semantike)
                 return Number(result).setContext(self.context), None
             except ValueError:
-                # Drugače pa pretvorimo prvo število v niz in združimo
                 return String(str(self.value) + other.value).setContext(self.context), None
         else:
             return None, Value.illegalOperation(self, other)
@@ -1340,6 +1354,15 @@ Number.null = Number(0)
 Number.false = Number(0)
 Number.true = Number(1)
 Number.math_PI = Number(math.pi)
+
+class Void(Value):
+    def __init__(self):
+        super().__init__()
+    def copy(self):
+        return self 
+    def __repr__(self):
+        return "" 
+
 
 
 class BaseFunction(Value):
@@ -1441,11 +1464,12 @@ class BuiltInFunction(BaseFunction):
         return f"<built-in function {self.name}>"
     
 
+
 #vgrajene funkcije
 
     def execute_print(self, execCtx):
         print(str(execCtx.symbolTable.get('value')), end="")
-        return RTResult().success(Number.null)
+        return RTResult().success(Void())
     execute_print.arg_names = ['value']
 
     def execute_print_ret(self, execCtx):
@@ -1457,6 +1481,27 @@ class BuiltInFunction(BaseFunction):
         text = input()
         return RTResult().success(String(text))
     execute_input.arg_names = ['value']
+
+    def execute_root(self, execCtx):
+        value_ = execCtx.symbolTable.get("value")
+        root_ = execCtx.symbolTable.get("root")
+
+        if not isinstance(value_, Number):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "First argument must be a number", execCtx))
+        if not isinstance(root_, Number):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Second argument must be a number", execCtx))
+
+        return RTResult().success(Number(value_.value ** (1 / root_.value)))
+    execute_root.arg_names = ['value', 'root']
+
+    def execute_sqr_root(self, execCtx):
+        value_ = execCtx.symbolTable.get("value")
+
+        if not isinstance(value_, Number):
+            return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "First argument must be a number", execCtx))
+
+        return RTResult().success(Number(value_.value ** (1 / 2)))
+    execute_sqr_root.arg_names = ['value']
 
     def execute_input_int(self, execCtx):
         print(str(execCtx.symbolTable.get('value')))
@@ -1472,7 +1517,7 @@ class BuiltInFunction(BaseFunction):
 
     def execute_clear(self, execCtx):
         os.system('cls' if os.name == 'nt' else 'clear')
-        return RTResult().success(Number.null)
+        return RTResult().success(Void())
     execute_clear.arg_names = []
 
     def execute_is_number(self, execCtx):
@@ -1503,7 +1548,7 @@ class BuiltInFunction(BaseFunction):
             return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "First argument must be a list", execCtx))
         
         list_.elements.append(value)
-        return RTResult().success(Number.null)
+        return RTResult().success(Void())
     execute_append.arg_names = ['list', 'value']
 
     def execute_pop(self, execCtx):
@@ -1531,7 +1576,7 @@ class BuiltInFunction(BaseFunction):
             return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Second argument must be a list", execCtx))
         
         listA.elements.extend(listB.elements)
-        return RTResult().success(Number.null)
+        return RTResult().success(Void())
     execute_extend.arg_names = ['listA', 'listB']
 
     def execute_update(self, execCtx):
@@ -1549,7 +1594,7 @@ class BuiltInFunction(BaseFunction):
         except Exception as e:
             return RTResult().failure(RuntimeError(self.posStart, self.posEnd, "Error while updating an element: " + str(e), execCtx))
         
-        return RTResult().success(Number.null)
+        return RTResult().success(Void())
     execute_update.arg_names = ['list', 'index', 'value']
 
     def execute_random(self, execCtx):
@@ -1594,7 +1639,7 @@ class BuiltInFunction(BaseFunction):
         if error:
             return RTResult().failure(RuntimeError(self.posStart, self.posEnd, f"Failed to finish executing script \"{fileName}\"\n" + error.as_string(), execCtx))
 
-        return RTResult().success(Number.null)
+        return RTResult().success(Void())
     execute_run.arg_names = ['fileName']
 
 
@@ -1602,6 +1647,8 @@ BuiltInFunction.print = BuiltInFunction("print")
 BuiltInFunction.printRet = BuiltInFunction("print_ret")
 BuiltInFunction.input = BuiltInFunction("input")
 BuiltInFunction.inputInt = BuiltInFunction("input_int")
+BuiltInFunction.root = BuiltInFunction("root")
+BuiltInFunction.sqr_root = BuiltInFunction("sqr_root")
 BuiltInFunction.clear = BuiltInFunction("clear")
 BuiltInFunction.isNumber = BuiltInFunction("is_number")
 BuiltInFunction.isString = BuiltInFunction("is_string")
@@ -1695,6 +1742,7 @@ class String(Value):
     def __repr__(self):
         return f'"{self.value}"'
 
+
 class List(Value):
     def __init__(self, elements):
         super().__init__()
@@ -1782,6 +1830,7 @@ class Interpreter:
         methodName = f'visit{type(node).__name__}'
         method = getattr(self, methodName, self.noVisitMethod)
         return method(node, context)
+    
     def noVisitMethod(self, node, context):
         raise Exception(f'No visit{type(node).__name__} method defined')
     
@@ -2024,6 +2073,8 @@ globalSymbolTable.set("PRINT", BuiltInFunction.print)
 globalSymbolTable.set("PRINT_RET", BuiltInFunction.printRet)
 globalSymbolTable.set("INPUT", BuiltInFunction.input)
 globalSymbolTable.set("INPUT_INT", BuiltInFunction.inputInt)
+globalSymbolTable.set("ROOT", BuiltInFunction.root)
+globalSymbolTable.set("SQR_ROOT", BuiltInFunction.sqr_root)
 globalSymbolTable.set("CLEAR", BuiltInFunction.clear)
 globalSymbolTable.set("IS_NUM", BuiltInFunction.isNumber)
 globalSymbolTable.set("IS_STR", BuiltInFunction.isString)

@@ -1,3 +1,5 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\Factorial.txt")
+
 FUN fact(a)
     IF a != 0 THEN
         RETURN a * fact(a - 1)

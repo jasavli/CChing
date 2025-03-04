@@ -3,8 +3,11 @@ import program
 while True: 
 		text = input('C$ > ')
 		if text.strip() == "": continue
+
 		result, error = program.run('<stdin>', text)
+
   
+
 		if error: print(error.as_string())
 		elif result: 
 			if len(result.elements) == 1:

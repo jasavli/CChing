@@ -1,0 +1,8 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\ZvezdiceKvadrat.txt")
+
+FOR i = 0 TO 5 THEN
+    FOR x = 0 TO 5 THEN
+        PRINT("*")
+    END
+    PRINT("\n")
+END

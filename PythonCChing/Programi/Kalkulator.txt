@@ -1,3 +1,5 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\Kalkulator.txt")
+
 FUN izracunaj(s1, op, s2)
     IF op == "+" THEN
         RETURN s1 + s2
@@ -26,6 +28,7 @@ WHILE TRUE THEN
 
     PRINT(r)
     
+    PRINT("\n")
     VAR nadaljuj = INPUT("Zelis nadaljevati (d/n): ")
     IF nadaljuj == "n" THEN BREAK 
 END

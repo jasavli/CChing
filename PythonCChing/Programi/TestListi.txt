@@ -1,4 +1,4 @@
-# RUN("C:\\CChing\\PythonCChing\\Programi\\TestiListi.txt")
+# RUN("C:\\CChing\\PythonCChing\\Programi\\TestListi.txt")
 
 FUN main()
     VAR list = []

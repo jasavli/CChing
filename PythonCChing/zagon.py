@@ -1,7 +1,7 @@
 import program
 
 while True: 
-		text = input('C$ > ')
+		text = input('Py$ > ')
 		if text.strip() == "": continue
 
 		result, error = program.run('<stdin>', text)

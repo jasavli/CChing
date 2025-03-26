@@ -1,0 +1,70 @@
+# RUN("C:\\CChing\\PythonCChing\\Programi\\BlackJack.txt")
+
+FUN draw_card()
+    # Nakljucno izberi karto med 1 in 13
+    VAR card = RANDOM(1, 13)
+    # ce je karta 1, jo stej kot Asa (11)
+    IF card == 1 THEN
+        VAR card = 11
+    ELIF card >= 10 THEN
+        # Karte 11, 12 in 13 stejejo kot 10
+        VAR card = 10
+    ELSE
+        VAR card = card
+    END
+    RETURN card
+END
+
+FUN blackjack()
+    # Igralcu in delilcu dajemo po dve karti
+    VAR player_total = draw_card() + draw_card()
+    VAR dealer_total = draw_card() + draw_card()
+    
+    PRINT_LINE("Dobrodosli v Blackjacku!")
+    PRINT_LINE("Igralcev zacetni sestevek: " + player_total)
+    PRINT_LINE("Prva karta delilca: " + dealer_total)
+    
+    # Igralcev krog - dokler ni 21 ali vec
+    WHILE player_total < 21 THEN
+        VAR hit = INPUT_INT("zelite se karto? (1 = da, 0 = ne): ")
+        IF hit == 1 THEN
+            VAR card = draw_card()
+            PRINT_LINE("Narisena karta: " + card)
+            player_total = player_total + card
+            PRINT_LINE("Vas sestevek: " + player_total)
+        ELSE
+            BREAK
+        END
+    END
+    
+    # ce je igralcev sestevek vecji od 21, izgubi
+    IF player_total > 21 THEN
+        PRINT_LINE("Prevec! Izgubili ste.")
+        RETURN
+    END
+    
+    # Delilec vlece karte, dokler njegov sestevek ne doseze vsaj 17
+    PRINT_LINE("Na vrsti je delilec.")
+    WHILE dealer_total < 17 THEN
+        VAR card = draw_card()
+        PRINT_LINE("Delilec narise karto: " + card)
+        dealer_total = dealer_total + card
+        PRINT_LINE("Delilec sestevek: " + dealer_total)
+    END
+    
+    # Prikaz rezultatov in odlocitev o zmagi
+    PRINT_LINE("Koncni rezultati:")
+    PRINT_LINE("Igralcev sestevek: " + player_total)
+    PRINT_LINE("Delilcev sestevek: " + dealer_total)
+    
+    IF dealer_total > 21 OR player_total > dealer_total THEN
+        PRINT_LINE("cestitamo, zmagali ste!")
+    ELIF player_total == dealer_total THEN
+        PRINT_LINE("Izenaceno!")
+    ELSE
+        PRINT_LINE("Izgubili ste!")
+    END
+END
+
+# Zagon igre
+blackjack()

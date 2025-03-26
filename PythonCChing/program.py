@@ -100,8 +100,6 @@ class Lexer:
                 continue
             elif self.currentChar == '#':
                 self.skipComment()
-            elif self.currentChar == '&':
-                self.skipComments()
             elif self.currentChar in ';\n':
                 tokens.append(Token(NOVAVRSTICA, posStart = self.pos))
                 self.advance()
@@ -273,17 +271,20 @@ class Lexer:
     
     def skipComment(self):
         self.advance()
-        while self.currentChar is not None and self.currentChar != '\n':
-            self.advance()
-        if self.currentChar == '\n':
-            self.advance()
-
-    def skipComments(self):
-        self.advance()
-        while self.currentChar is not None and self.currentChar != "&":
-            self.advance()
-        if self.currentChar == '&':
-            self.advance()
+        if self.currentChar == '#':
+            self.advance() 
+            while self.currentChar is not None:
+               
+                if self.currentChar == '#':
+                    self.advance()
+                    break
+                else:
+                    self.advance()
+        else:
+            while self.currentChar is not None and self.currentChar != '\n':
+                self.advance()
+            if self.currentChar == '\n':
+                self.advance()
 
 
 
@@ -1188,7 +1189,7 @@ class Value:
 
 	def multiplyBy(self, other):
 		return None, self.illegalOperation(other)
-
+    
 	def divideBy(self, other):
 		return None, self.illegalOperation(other)
 
@@ -1233,13 +1234,8 @@ class Value:
 
 	def illegalOperation(self, other=None):
 		if not other: other = self
-		return RuntimeError(
-			self.posStart, other.posEnd,
-			'Illegal operation',
-			self.context
-		)
-        
-
+		return RuntimeError(self.posStart, other.posEnd,'Illegal operation',self.context)
+    
 
 class Number(Value):
     def __init__(self, value):
@@ -1472,6 +1468,12 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Void())
     execute_print.arg_names = ['value']
 
+    def execute_print_line(self, execCtx):
+        print(str(execCtx.symbolTable.get('value')), end="")
+        print()
+        return RTResult().success(Void())
+    execute_print_line.arg_names = ['value']
+
     def execute_print_ret(self, execCtx):
         return RTResult().success(String(str(execCtx.symbolTable.get('value'))))
     execute_print_ret.arg_names = ['value']
@@ -1644,6 +1646,7 @@ class BuiltInFunction(BaseFunction):
 
 
 BuiltInFunction.print = BuiltInFunction("print")
+BuiltInFunction.print_line = BuiltInFunction("print_line")
 BuiltInFunction.printRet = BuiltInFunction("print_ret")
 BuiltInFunction.input = BuiltInFunction("input")
 BuiltInFunction.inputInt = BuiltInFunction("input_int")
@@ -2070,6 +2073,7 @@ globalSymbolTable.set("FALSE", Number.false)
 globalSymbolTable.set("TRUE", Number.true)
 globalSymbolTable.set("MATH_PI", Number.math_PI)
 globalSymbolTable.set("PRINT", BuiltInFunction.print)
+globalSymbolTable.set("PRINT_LINE", BuiltInFunction.print_line)
 globalSymbolTable.set("PRINT_RET", BuiltInFunction.printRet)
 globalSymbolTable.set("INPUT", BuiltInFunction.input)
 globalSymbolTable.set("INPUT_INT", BuiltInFunction.inputInt)
@@ -2106,5 +2110,5 @@ def run(fileName, text):
     context.symbolTable = globalSymbolTable
     result = interpreter.visit(ast.node, context)
 
-
+    
     return result.value, result.error

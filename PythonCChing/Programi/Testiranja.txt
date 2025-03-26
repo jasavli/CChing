@@ -1,5 +1,7 @@
 # RUN("C:\\CChing\\PythonCChing\\Programi\\Testiranja.txt")
 
+
+##
 FUN narediKvadrat()
     VAR a = 5
     VAR b = 2
@@ -15,6 +17,9 @@ FUN narediKvadrat()
         VAR y = 0
     END
 END
+#
+
+#narediKvadrat()
 
 FUN poskusiIf()
     VAR a = 0
@@ -33,20 +38,49 @@ FUN poskusiIf()
     
 END
 
-PRINT("Start")
+#PRINT("Start")
 
-&VAR a = 0
+#VAR x = 0
+
+
+VAR a = 0
 VAR b = 0
 IF a == b THEN
     IF a == 0  AND b == 1 THEN
-        RETURN 0
+        VAR x = 1
     ELIF a == 1 AND b == 0 THEN
-        RETURN  1
+        VAR x = 1
     ELSE 
-        RETURN 2
+        VAR x = 1
     END
 ELSE    
-    RETURN 3
-END&
+    VAR x = 1
+END 
+PRINT_LINE(x)
 
-PRINT("End")
+
+
+
+
+
+FUN sestej(a, b)
+    RETURN a + b
+END
+
+PRINT_LINE(sestej(3, 5))
+
+
+# PRINT("Hello")
+##
+VAR x = 3
+PRINT(x)
+#
+
+
+
+
+
+
+
+
+
